@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sistema de Inteligencia Territorial — Análisis Multicriterio</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: '#16a34a',
+            surface: 'rgba(2, 44, 34, 0.75)',
+            surfaceBorder: 'rgba(163, 230, 196, 0.2)'
+          },
+          boxShadow: {
+            soft: '0 8px 32px rgba(0,0,0,.15)',
+            deep: '0 24px 64px rgba(0,0,0,.4)'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Outfit', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: #020617;
+      overflow: hidden;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+    }
+
+    /* NAV */
+    .header-premium {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 28px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+    }
+
+    .nav-menu {
+      display: flex;
+      gap: 6px;
+    }
+
+    .nav-link {
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #334155;
+      transition: all 0.2s ease;
+    }
+
+    .nav-link:hover {
+      background: #f1f5f9;
+      color: #16a34a;
+    }
+
+    .nav-link.active {
+      background: #16a34a;
+      color: white;
+      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+    }
+
+    /* Glassmorphism Pro */
+    .panel-glass-dark {
+      background: linear-gradient(145deg, rgba(2, 44, 34, 0.85), rgba(2, 44, 34, 0.95));
+      border: 1px solid rgba(163, 230, 196, 0.15);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 32px 64px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    .section-card {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    /* Segment Controls */
+    .segment-control {
+      display: flex;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 8px;
+      padding: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .segment-btn {
+      flex: 1;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      padding: 6px 0;
+      border-radius: 6px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+    }
+
+    .segment-btn[data-active="1"] {
+      background: #10b981;
+      color: white;
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+    }
+
+    /* Sliders personalizados */
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      background: #10b981;
+      cursor: pointer;
+      margin-top: -6px;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+      transition: transform 0.1s;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 4px;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+
+    /* Barras de progreso */
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* Tooltips mapa */
+    .leaflet-tooltip.place-label {
+      background: transparent;
+      border: none;
+      color: #f8fafc;
+      font-weight: 700;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8), 0 0 10px rgba(0, 0, 0, 0.5);
+      box-shadow: none;
+    }
+
+    /* Animaciones avanzadas de Mapa (Hexágonos) */
+    .animated-hex {
+      animation: hexPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+      transition: fill-opacity 0.3s, fill-color 0.3s, stroke-width 0.2s;
+    }
+
+    .animated-hex:hover {
+      fill-opacity: 0.8 !important;
+      stroke: #fff;
+      stroke-width: 2.5px;
+      cursor: pointer;
+    }
+
+    .hex-pulse {
+      animation: hexPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) backwards, pulseGlow 3s infinite alternate;
+    }
+
+    @keyframes hexPop {
+      0% {
+        opacity: 0;
+        transform: scale(0.3);
+      }
+
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes pulseGlow {
+      0% {
+        filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.4));
+      }
+
+      100% {
+        filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.9));
+      }
+    }
+
+    /* Loader Overlay */
+    #loader-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.8);
+      z-index: 500;
+      backdrop-filter: blur(8px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+
+    #loader-overlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid rgba(16, 185, 129, 0.2);
+      border-top-color: #10b981;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="header-premium">
+    <div style="display:flex; align-items:center; gap:14px">
+      <div class="h-10 w-10 bg-emerald-600 rounded-lg flex items-center justify-center text-white shadow-lg">
+        <i class="fa-solid fa-map-location-dot text-xl"></i>
+      </div>
+      <div>
+        <div style="font-family:var(--font-title); font-size:1.25rem; font-weight:800; line-height:1; color:#064e3b">
+          OAXACA EXPLORA</div>
+        <div
+          style="font-size:9px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:1.5px; margin-top:3px">
+          Inteligencia Territorial</div>
+      </div>
+    </div>
+    <nav class="nav-menu">
+      <a href="index.html" class="nav-link">Inicio</a>
+      <a href="pois.html" class="nav-link active">Experiencias</a>
+      <a href="modelos.html" class="nav-link">Inteligencia</a>
+      <a href="participacion.html" class="nav-link">Comunidad</a>
+    </nav>
+  </header>
+
+  <div id="app" class="relative h-[calc(100vh-65px)]">
+    <div id="map" class="z-0"></div>
+
+    <div id="loader-overlay">
+      <div class="spinner mb-4"></div>
+      <h2 class="text-xl font-display font-bold text-white tracking-wide">Procesando Modelo AHP</h2>
+      <div class="text-sm text-emerald-400 font-mono mt-2" id="loader-text">Iniciando motor espacial...</div>
+      <div class="w-64 h-1 bg-gray-800 rounded-full mt-4 overflow-hidden">
+        <div class="h-full bg-emerald-500 w-0 transition-all duration-[2000ms] ease-out" id="loader-bar"></div>
+      </div>
+    </div>
+
+    <div
+      class="absolute top-4 left-1/2 -translate-x-1/2 z-[75] bg-white/95 backdrop-blur-md border border-gray-200 rounded-2xl px-6 py-3 flex items-center gap-6 shadow-soft transition-all">
+      <div>
+        <div class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Potencial Derrama Anual</div>
+        <div class="text-xl font-black text-emerald-600 leading-none" id="kpi-derrama">$0.0M</div>
+      </div>
+      <div class="w-px h-8 bg-gray-200"></div>
+      <div>
+        <div class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Empleos Locales Proy.</div>
+        <div class="text-xl font-black text-emerald-600 leading-none" id="kpi-empleos">0</div>
+      </div>
+      <div class="w-px h-8 bg-gray-200"></div>
+      <div>
+        <div class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Carga Turística Est.</div>
+        <div class="text-xl font-black text-emerald-600 leading-none" id="kpi-visit">0</div>
+      </div>
+      <div class="w-px h-8 bg-gray-200"></div>
+      <div>
+        <div class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Zonas Críticas (Riesgo)</div>
+        <div class="text-xl font-black text-red-500 leading-none" id="kpi-risk">0</div>
+      </div>
+    </div>
+
+    <aside
+      class="absolute right-4 top-4 bottom-8 z-[100] w-[420px] max-w-[95vw] rounded-2xl panel-glass-dark text-gray-100 flex flex-col shadow-[0_0_40px_rgba(0,0,0,0.5)] transition-transform duration-500"
+      id="main-panel">
+
+      <div class="p-5 border-b border-[rgba(255,255,255,0.05)]">
+        <h2 class="text-lg font-display font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-layer-group text-emerald-400"></i> Modelo Multicriterio (AHP)
+        </h2>
+        <p class="text-xs text-emerald-100/60 mt-1">Soporte de decisiones espaciales para ordenamiento.</p>
+      </div>
+
+      <div class="flex px-4 pt-2">
+        <button
+          class="wiz-tab flex-1 pb-3 text-[10px] uppercase tracking-wider font-bold text-emerald-400 border-b-2 border-emerald-400 transition-all"
+          data-step="1" onclick="wizGoTo(1)">01 Escenario</button>
+        <button
+          class="wiz-tab flex-1 pb-3 text-[10px] uppercase tracking-wider font-bold text-gray-500 border-b-2 border-transparent transition-all"
+          data-step="2" onclick="wizGoTo(2)">02 Criterios</button>
+        <button
+          class="wiz-tab flex-1 pb-3 text-[10px] uppercase tracking-wider font-bold text-gray-500 border-b-2 border-transparent transition-all"
+          data-step="3" onclick="wizGoTo(3)">03 Resultados</button>
+      </div>
+
+      <div class="p-5 overflow-y-auto flex-1 space-y-5 custom-scrollbar">
+
+        <div class="wiz-panel" data-panel="1">
+          <div class="section-card space-y-4">
+            <h3 class="text-sm font-semibold text-white">Política de Desarrollo Regional</h3>
+            <p class="text-xs text-gray-400">Seleccione el macro-escenario para pre-cargar la matriz de pesos del
+              modelo.</p>
+
+            <div class="grid grid-cols-1 gap-2">
+              <button
+                class="flex items-center justify-between p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-left transition-all hover:bg-emerald-500/20"
+                onclick="setScenario('sostenible')">
+                <div>
+                  <div class="text-sm font-bold text-emerald-300">Desarrollo Sostenible</div>
+                  <div class="text-[10px] text-gray-400 mt-0.5">Equilibrio entre infraestructura y conservación.</div>
+                </div>
+                <i class="fa-solid fa-leaf text-emerald-500"></i>
+              </button>
+
+              <button
+                class="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-white/5 text-left transition-all hover:bg-white/10"
+                onclick="setScenario('conservacion')">
+                <div>
+                  <div class="text-sm font-bold text-gray-200">Alta Conservación</div>
+                  <div class="text-[10px] text-gray-400 mt-0.5">Máxima protección y penalización al riesgo.</div>
+                </div>
+                <i class="fa-solid fa-shield-halved text-gray-400"></i>
+              </button>
+            </div>
+          </div>
+
+          <button
+            class="w-full mt-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-transform active:scale-95"
+            onclick="wizGoTo(2)">
+            Continuar a Matriz de Criterios <i class="fa-solid fa-arrow-right ml-1"></i>
+          </button>
+        </div>
+
+        <div class="wiz-panel hidden" data-panel="2">
+
+          <div class="section-card">
+            <h3 class="text-xs uppercase tracking-wider font-bold text-emerald-400 mb-3">Matriz de Ponderación</h3>
+
+            <div class="space-y-4">
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span class="text-gray-200 font-medium">Patrimonio
+                    Nat/Cult</span> <span class="text-emerald-400 font-mono text-[10px]" id="w-val-nice">0.33</span>
+                </div>
+                <div class="segment-control" data-lvl="nice">
+                  <div class="segment-btn" data-v="1">Bajo</div>
+                  <div class="segment-btn" data-v="2" data-active="1">Medio</div>
+                  <div class="segment-btn" data-v="3">Alto</div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span class="text-gray-200 font-medium">Infraestructura
+                    Básica</span> <span class="text-emerald-400 font-mono text-[10px]" id="w-val-svc">0.33</span></div>
+                <div class="segment-control" data-lvl="svc">
+                  <div class="segment-btn" data-v="1">Bajo</div>
+                  <div class="segment-btn" data-v="2">Medio</div>
+                  <div class="segment-btn" data-v="3" data-active="1">Alto</div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span class="text-gray-200 font-medium">Conectividad
+                    Vial</span> <span class="text-emerald-400 font-mono text-[10px]" id="w-val-acc">0.33</span></div>
+                <div class="segment-control" data-lvl="acc">
+                  <div class="segment-btn" data-v="1">Bajo</div>
+                  <div class="segment-btn" data-v="2" data-active="1">Medio</div>
+                  <div class="segment-btn" data-v="3">Alto</div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span class="text-gray-200 font-medium">Vulnerabilidad
+                    (-)</span> <span class="text-emerald-400 font-mono text-[10px]" id="w-val-risk">0.33</span></div>
+                <div class="segment-control" data-lvl="risk">
+                  <div class="segment-btn" data-v="1">Evitar Poco</div>
+                  <div class="segment-btn" data-v="2" data-active="1">Estricto</div>
+                  <div class="segment-btn" data-v="3">Crítico</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-card mt-3">
+            <div class="flex justify-between items-center text-xs text-gray-200 mb-2">
+              <span class="font-medium">Resolución de Malla H3 (Aprox)</span>
+              <span class="font-mono text-emerald-400 bg-emerald-900/50 px-2 py-0.5 rounded"><span
+                  id="cellKmVal">2</span> km²</span>
+            </div>
+            <input id="cellKm" type="range" min="1" max="5" step="0.5" value="2">
+          </div>
+
+          <div class="flex gap-3 mt-6">
+            <button
+              class="px-4 py-3 rounded-xl border border-white/10 text-white font-medium text-xs hover:bg-white/5 transition-all"
+              onclick="wizGoTo(1)">Regresar</button>
+            <button
+              class="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-transform active:scale-95"
+              onclick="triggerSimulation()">
+              Ejecutar Análisis <i class="fa-solid fa-play ml-1"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="wiz-panel hidden" data-panel="3">
+
+          <div id="instruction-click"
+            class="section-card border-dashed border-emerald-500/50 bg-emerald-500/5 text-center py-6 transition-all">
+            <i class="fa-solid fa-hand-pointer text-emerald-400 text-2xl mb-2 animate-bounce"></i>
+            <h3 class="text-sm font-bold text-white">Seleccione una celda</h3>
+            <p class="text-xs text-gray-400 mt-1">Haga clic en un hexágono del mapa para ver su desglose multicriterio.
+            </p>
+          </div>
+
+          <section id="panelInfo" class="hidden space-y-3 animate-[fadeIn_0.4s_ease-out]">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-display font-bold text-white">Evaluación de Idoneidad</h3>
+                <p class="text-[10px] text-gray-400 font-mono" id="resMuni">Coordenadas del sitio</p>
+              </div>
+              <div class="text-3xl font-black font-mono text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.6)]"
+                id="scoreTag">00</div>
+            </div>
+
+            <div class="w-full bg-black/40 h-2 rounded-full overflow-hidden">
+              <div id="scoreBar"
+                class="h-full bg-gradient-to-r from-yellow-400 to-emerald-500 transition-all duration-700 w-0"></div>
+            </div>
+
+            <div class="section-card mt-2">
+              <h4 class="text-[10px] uppercase font-bold text-gray-500 mb-3 tracking-wider">Aportación por Criterio</h4>
+
+              <div class="space-y-3">
+                <div>
+                  <div class="flex justify-between text-[10px] text-gray-300"><span class="flex items-center gap-1"><i
+                        class="fa-solid fa-mountain text-emerald-500"></i> Patrimonio</span> <span id="ctNice"
+                      class="font-mono">0%</span></div>
+                  <div class="progress-track">
+                    <div id="barNice" class="progress-fill bg-emerald-500 w-0"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-[10px] text-gray-300"><span class="flex items-center gap-1"><i
+                        class="fa-solid fa-faucet-drip text-blue-400"></i> Infraestructura</span> <span id="ctSvc"
+                      class="font-mono">0%</span></div>
+                  <div class="progress-track">
+                    <div id="barSvc" class="progress-fill bg-blue-400 w-0"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-[10px] text-gray-300"><span class="flex items-center gap-1"><i
+                        class="fa-solid fa-road text-gray-400"></i> Conectividad</span> <span id="ctAcc"
+                      class="font-mono">0%</span></div>
+                  <div class="progress-track">
+                    <div id="barAcc" class="progress-fill bg-gray-400 w-0"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-[10px] text-gray-300"><span class="flex items-center gap-1"><i
+                        class="fa-solid fa-fire text-red-400"></i> Vulnerabilidad</span> <span id="ctRisk"
+                      class="font-mono">0%</span></div>
+                  <div class="progress-track">
+                    <div id="barRisk" class="progress-fill bg-red-400 w-0"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 relative overflow-hidden group">
+              <div
+                class="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/10 to-emerald-500/0 translate-x-[-100%] group-hover:animate-[shimmer_2s_infinite]">
+              </div>
+              <div class="text-[10px] font-bold text-emerald-400 uppercase tracking-wide mb-1 relative z-10">Dictamen
+                Técnico</div>
+              <div id="resWhy" class="text-xs text-gray-200 leading-relaxed relative z-10">Cargando diagnóstico
+                espacial...</div>
+            </div>
+          </section>
+
+          <button
+            class="w-full mt-4 py-3 rounded-xl border border-white/10 text-white font-medium text-xs hover:bg-white/5 transition-transform active:scale-95"
+            onclick="wizGoTo(2)">
+            <i class="fa-solid fa-sliders mr-1"></i> Ajustar Modelo
+          </button>
+        </div>
+
+      </div>
+    </aside>
+
+    <div
+      class="absolute left-6 bottom-8 z-[100] bg-white/95 backdrop-blur-md rounded-xl shadow-soft p-4 border border-gray-200 text-xs">
+      <div class="font-bold text-gray-700 mb-2">Índice de Idoneidad MCDA</div>
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center gap-2 text-gray-600"><span
+            class="w-4 h-4 rounded shadow-inner bg-[#10b981] animate-pulse"></span> Apto (≥ 65)</div>
+        <div class="flex items-center gap-2 text-gray-600"><span
+            class="w-4 h-4 rounded shadow-inner bg-[#facc15]"></span> Condicionado (45-64)</div>
+        <div class="flex items-center gap-2 text-gray-600"><span
+            class="w-4 h-4 rounded shadow-inner bg-[#ef4444]"></span> Restringido (&lt; 45)</div>
+      </div>
+      <hr class="my-2 border-gray-200">
+      <div class="flex items-center justify-between text-gray-500"><span>Resolución:</span><span><b id="lg-cell">2</b>
+          km²</span></div>
+      <div class="flex items-center justify-between text-gray-500"><span>Umbral de Aprobación:</span><span><b>65
+            pts</b></span></div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes shimmer {
+      100% {
+        transform: translateX(100%);
+      }
+    }
+  </style>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+
+      const placesWithCoordinates = [
+        { name: "San Pablo Huitzo", lat: 17.2667, lng: -96.8833 },
+        { name: "Mitla", lat: 16.9261, lng: -96.3597 },
+        { name: "Telixtlahuaca", lat: 17.3167, lng: -96.9000 },
+        { name: "Etla", lat: 17.2136, lng: -96.7692 },
+        { name: "Tlalixtac", lat: 17.1167, lng: -96.6833 },
+        { name: "San Antonio de la Cal", lat: 17.0833, lng: -96.7167 }
+      ];
+
+      const $ = id => document.getElementById(id);
+      const clamp01 = x => Math.max(0, Math.min(1, x));
+      const MAX_M = 4000;
+
+      const levels = { nice: 2, svc: 3, acc: 2, risk: 2 };
+      const levelToWeight = [0, 0.20, 0.40, 0.60];
+      let currentScenario = 'sostenible';
+
+      const map = L.map('map', { center: [17.08, -96.72], zoom: 11, zoomControl: false });
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'MCDA System © Esri/Maxar', maxZoom: 19
+      }).addTo(map);
+
+      map.createPane('hex');
+      map.getPane('hex').style.zIndex = 400;
+
+      const placesLayer = L.layerGroup().addTo(map);
+      placesWithCoordinates.forEach(p => {
+        L.circleMarker([p.lat, p.lng], { radius: 4, color: '#fff', fillColor: '#10b981', fillOpacity: 1, weight: 2 }).addTo(placesLayer);
+        L.tooltip({ permanent: true, direction: 'right', offset: [8, 0], className: 'place-label' })
+          .setContent(p.name)
+          .setLatLng([p.lat, p.lng])
+          .addTo(placesLayer);
+      });
+
+      const bbox = [-97.05, 16.85, -96.35, 17.35];
+
+      const src = { nice: [], svc: [], acc: [], risk: [] };
+      function reseedData() {
+        const rp = () => [bbox[0] + Math.random() * (bbox[2] - bbox[0]), bbox[1] + Math.random() * (bbox[3] - bbox[1])];
+        src.nice = Array.from({ length: 40 }, () => turf.point(rp()));
+        src.svc = Array.from({ length: 30 }, () => turf.point(rp()));
+        src.acc = Array.from({ length: 35 }, () => turf.point(rp()));
+        src.risk = Array.from({ length: 15 }, () => turf.point(rp(), { risk: Math.random() * 0.8 + 0.2 }));
+      }
+
+      window.wizGoTo = function (step) {
+        document.querySelectorAll('.wiz-panel').forEach(p => p.classList.add('hidden'));
+        document.querySelector(`.wiz-panel[data-panel="${step}"]`).classList.remove('hidden');
+
+        document.querySelectorAll('.wiz-tab').forEach(t => {
+          t.classList.replace('text-emerald-400', 'text-gray-500');
+          t.classList.replace('border-emerald-400', 'border-transparent');
+        });
+        const activeTab = document.querySelector(`.wiz-tab[data-step="${step}"]`);
+        activeTab.classList.replace('text-gray-500', 'text-emerald-400');
+        activeTab.classList.replace('border-transparent', 'border-emerald-400');
+      };
+
+      window.setScenario = function (type) {
+        currentScenario = type;
+        if (type === 'sostenible') {
+          levels.nice = 2; levels.svc = 3; levels.acc = 2; levels.risk = 2;
+        } else {
+          levels.nice = 3; levels.svc = 1; levels.acc = 1; levels.risk = 3;
+        }
+        updateUIWeights();
+      };
+
+      document.querySelectorAll('.segment-control').forEach(group => {
+        group.addEventListener('click', ev => {
+          const btn = ev.target.closest('.segment-btn');
+          if (!btn) return;
+          group.querySelectorAll('.segment-btn').forEach(b => b.removeAttribute('data-active'));
+          btn.setAttribute('data-active', '1');
+          const key = group.getAttribute('data-lvl');
+          levels[key] = +btn.dataset.v;
+          updateUIWeights();
+        });
+      });
+
+      $('cellKm').addEventListener('input', e => $('cellKmVal').innerText = e.target.value);
+
+      function updateUIWeights() {
+        Object.keys(levels).forEach(k => {
+          const group = document.querySelector(`[data-lvl="${k}"]`);
+          group.querySelectorAll('.segment-btn').forEach(b => {
+            if (+b.dataset.v === levels[k]) b.setAttribute('data-active', '1');
+            else b.removeAttribute('data-active');
+          });
+        });
+
+        const wRaw = {
+          nice: levelToWeight[levels.nice], svc: levelToWeight[levels.svc],
+          acc: levelToWeight[levels.acc], risk: levelToWeight[levels.risk]
+        };
+        const sum = Math.max(0.001, wRaw.nice + wRaw.svc + wRaw.acc + wRaw.risk);
+        $('w-val-nice').innerText = (wRaw.nice / sum).toFixed(2);
+        $('w-val-svc').innerText = (wRaw.svc / sum).toFixed(2);
+        $('w-val-acc').innerText = (wRaw.acc / sum).toFixed(2);
+        $('w-val-risk').innerText = (wRaw.risk / sum).toFixed(2);
+      }
+
+      const hexLayerGroup = L.layerGroup().addTo(map);
+      let globalState = { derrama: 0, empleos: 0, visit: 0, risk: 0 };
+
+      // ODOMETER ANIMATION FUNCTION
+      function animateValue(id, start, end, duration, isCurrency = false) {
+        const obj = $(id);
+        let startTimestamp = null;
+        const step = (timestamp) => {
+          if (!startTimestamp) startTimestamp = timestamp;
+          const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+          // EaseOutQuart
+          const ease = 1 - Math.pow(1 - progress, 4);
+          let current = progress * (end - start) + start;
+
+          if (isCurrency) {
+            obj.innerHTML = `$${current.toFixed(1)}M`;
+          } else {
+            obj.innerHTML = Math.floor(current).toLocaleString();
+          }
+
+          if (progress < 1) {
+            window.requestAnimationFrame(step);
+          }
+        };
+        window.requestAnimationFrame(step);
+      }
+
+      function runModel() {
+        hexLayerGroup.clearLayers();
+        const cell = parseFloat($('cellKm').value);
+        $('lg-cell').innerText = cell;
+
+        const wRaw = {
+          nice: levelToWeight[levels.nice], svc: levelToWeight[levels.svc],
+          acc: levelToWeight[levels.acc], risk: levelToWeight[levels.risk]
+        };
+        const sumW = Math.max(1e-9, wRaw.nice + wRaw.svc + wRaw.acc + wRaw.risk);
+        const w = { nice: wRaw.nice / sumW, svc: wRaw.svc / sumW, acc: wRaw.acc / sumW, risk: wRaw.risk / sumW };
+
+        const fcNice = turf.featureCollection(src.nice);
+        const fcSvc = turf.featureCollection(src.svc);
+        const fcAcc = turf.featureCollection(src.acc);
+        const fcHaz = turf.featureCollection(src.risk);
+
+        const nearestOrMax = (p, fc) => fc.features.length ? turf.distance(p, turf.nearestPoint(p, fc), { units: 'meters' }) : MAX_M;
+        const toBenefit = d => Math.pow(clamp01(1 - Math.min(d, MAX_M) / MAX_M), 0.8);
+
+        const hex = turf.hexGrid(bbox, cell, { units: 'kilometers' });
+        let aptasCount = 0;
+
+        hex.features = hex.features.map(c => {
+          const p = turf.centerOfMass(c);
+          const dNice = nearestOrMax(p, fcNice);
+          const dSvc = nearestOrMax(p, fcSvc);
+          const dAcc = nearestOrMax(p, fcAcc);
+
+          let h = 0.2, dHaz = MAX_M;
+          if (fcHaz.features.length) {
+            const n = turf.nearestPoint(p, fcHaz);
+            h = n.properties.risk; dHaz = turf.distance(p, n, { units: 'meters' });
+          }
+
+          const vNice = toBenefit(dNice);
+          const vSvc = toBenefit(dSvc);
+          const vAcc = toBenefit(dAcc);
+          const vRisk = 1 - clamp01(h * clamp01(1 - dHaz / MAX_M));
+
+          let penalty = 1.0;
+          if (currentScenario === 'sostenible' && vNice > 0.6 && vSvc < 0.4) penalty = 0.7;
+
+          const score01 = (vNice * w.nice + vSvc * w.svc + vAcc * w.acc + vRisk * w.risk) * penalty;
+          const finalScore = Math.round(score01 * 100);
+
+          if (finalScore >= 65) aptasCount++;
+
+          c.properties = {
+            score: finalScore,
+            coords: [p.geometry.coordinates[1].toFixed(4), p.geometry.coordinates[0].toFixed(4)],
+            raw: { dNice, dSvc, dAcc, h: (1 - vRisk) },
+            contr: {
+              nice: score01 > 0 ? (vNice * w.nice / score01) * 100 : 0,
+              svc: score01 > 0 ? (vSvc * w.svc / score01) * 100 : 0,
+              acc: score01 > 0 ? (vAcc * w.acc / score01) * 100 : 0,
+              risk: score01 > 0 ? (vRisk * w.risk / score01) * 100 : 0
+            }
+          };
+          return c;
+        });
+
+        // RENDERIZADO CON ANIMACIÓN ESCALONADA DE HEXÁGONOS
+        L.geoJSON(hex, {
+          pane: 'hex',
+          style: () => ({ opacity: 0, fillOpacity: 0 }), // Inicialmente invisibles
+          onEachFeature: (feature, layer) => {
+            // Asignar clase de animación y delay aleatorio para efecto visual
+            const delay = (Math.random() * 0.8).toFixed(2);
+            const s = feature.properties.score;
+            let color = s >= 65 ? '#10b981' : (s >= 45 ? '#facc15' : '#ef4444');
+            let opacity = s >= 45 ? 0.5 : 0.15;
+
+            // Si el puntaje es alto, le damos un efecto pulsante
+            const animClass = s >= 65 ? 'hex-pulse' : 'animated-hex';
+
+            layer.on('add', function () {
+              this._path.classList.add(animClass);
+              this._path.style.animationDelay = `${delay}s`;
+              this._path.style.fillColor = color;
+              this._path.setAttribute('fill', color);
+              this._path.setAttribute('stroke', 'rgba(255,255,255,0.1)');
+              this._path.setAttribute('stroke-width', '1');
+              this._path.style.setProperty('--final-opacity', opacity); // custom property
+            });
+
+            // Interacción click
+            layer.on('click', (e) => {
+              L.DomEvent.stopPropagation(e);
+
+              if (document.querySelector('.wiz-panel[data-panel="3"]').classList.contains('hidden')) {
+                window.wizGoTo(3);
+              }
+
+              $('instruction-click').classList.add('hidden');
+              $('panelInfo').classList.remove('hidden');
+
+              const prop = feature.properties;
+
+              // Animación dinámica del contador del panel
+              let startScore = parseInt($('scoreTag').innerText) || 0;
+              animateValue('scoreTag', startScore, prop.score, 600);
+
+              $('scoreBar').style.width = `${prop.score}%`;
+              $('resMuni').innerText = `Lat: ${prop.coords[0]}, Lng: ${prop.coords[1]}`;
+
+              const renderBar = (id, val) => {
+                const bar = $(`bar${id}`);
+                if (bar) {
+                  $(`ct${id}`).innerText = `${Math.round(val)}%`;
+                  bar.style.width = '0%';
+                  setTimeout(() => bar.style.width = `${val}%`, 50);
+                }
+              };
+
+              renderBar('Nice', prop.contr.nice);
+              renderBar('Svc', prop.contr.svc);
+              renderBar('Acc', prop.contr.acc);
+              renderBar('Risk', prop.contr.risk);
+
+              let msg = "";
+              if (prop.score >= 65) msg = "Terreno óptimo. Condicionado a evaluación de impacto ambiental local.";
+              else if (prop.score >= 45) {
+                if (prop.contr.svc < 15) msg = "Potencial frenado por déficit en infraestructura básica y sanitaria.";
+                else if (prop.contr.acc < 15) msg = "Requiere inversión prioritaria en conectividad vial.";
+                else msg = "Zona de transición. Evaluar viabilidad financiera detallada.";
+              } else {
+                msg = "No recomendado. Riesgo alto de vulnerabilidad o lejanía crítica de servicios.";
+              }
+              $('resWhy').innerText = msg;
+            });
+          }
+        }).addTo(hexLayerGroup);
+
+        // NUEVOS VALORES KPI
+        const projVisit = aptasCount * 1200;
+        const newDerrama = (projVisit * 1500) / 1000000;
+        const newEmpleos = Math.round(aptasCount * 22);
+        const newRisk = hex.features.filter(f => f.properties.raw.h > 0.6).length;
+
+        // ANIMAR KPIS
+        animateValue('kpi-derrama', globalState.derrama, newDerrama, 1500, true);
+        animateValue('kpi-empleos', globalState.empleos, newEmpleos, 1500);
+        animateValue('kpi-visit', globalState.visit, projVisit, 1500);
+        animateValue('kpi-risk', globalState.risk, newRisk, 1500);
+
+        // Guardar estado
+        globalState = { derrama: newDerrama, empleos: newEmpleos, visit: projVisit, risk: newRisk };
+      }
+
+      // SIMULAR PROCESAMIENTO
+      window.triggerSimulation = function () {
+        // Mostrar Loader
+        const loader = $('loader-overlay');
+        const text = $('loader-text');
+        const bar = $('loader-bar');
+
+        loader.classList.add('active');
+        bar.style.width = '0%';
+
+        // Simulación de textos de terminal
+        setTimeout(() => { text.innerText = "Extrayendo matriz de vegetación..."; bar.style.width = '30%'; }, 400);
+        setTimeout(() => { text.innerText = "Calculando isócronas de accesibilidad..."; bar.style.width = '60%'; }, 1000);
+        setTimeout(() => { text.innerText = "Renderizando modelo AHP..."; bar.style.width = '90%'; }, 1600);
+
+        setTimeout(() => {
+          loader.classList.remove('active');
+          bar.style.width = '100%';
+          // Ejecutar y avanzar panel
+          runModel();
+          wizGoTo(3);
+          $('instruction-click').classList.remove('hidden');
+          $('panelInfo').classList.add('hidden');
+        }, 2000);
+      };
+
+      // Inicialización silente (sin animar la primera vez para no ser invasivo)
+      reseedData();
+      updateUIWeights();
+      runModel();
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Experiencias | Oaxaca Explora</title>
+
+<!-- Leaflet + utilidades -->
+<link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+
+<!-- Iconos / fuente -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --primary: #0D47A1;
+    --primary-light: #1976D2;
+    --secondary: #2E7D32;
+    --accent: #FF8F00;
+    --dark: #0F172A;
+    --light: #F8FAFC;
+    --b: #E2E8F0;
+    --panel: #FFFFFF;
+    --font-main: 'Inter', system-ui, sans-serif;
+    --font-title: 'Outfit', sans-serif;
+    
+    --c-culturales: #E34C26;
+    --c-patrimonio: #8b5cf6;
+    --c-popular: #06b6d4;
+    --c-rutas: #2A9D8F;
+    --c-ensenanza: #ef4444;
+    --c-zona: #E9C46A;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: var(--font-main);
+    background: var(--light);
+    color: var(--dark);
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  header {
+    background: white;
+    border-bottom: 1px solid var(--b);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 1000;
+  }
+
+  .nav-menu {
+    display: flex;
+    gap: 8px;
+  }
+
+  .nav-link {
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--dark);
+    transition: all 0.2s;
+  }
+
+  .nav-link:hover {
+    background: var(--light);
+    color: var(--primary);
+  }
+
+  .nav-link.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(13, 71, 161, 0.2);
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Sidebar */
+  #sidebar {
+    width: 400px;
+    background: var(--panel);
+    border-right: 1px solid var(--b);
+    display: flex;
+    flex-direction: column;
+    z-index: 20;
+  }
+
+  .sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--b);
+  }
+
+  .sidebar-header h2 {
+    margin: 0 0 12px 0;
+    font-family: var(--font-title);
+    font-weight: 800;
+    font-size: 1.3rem;
+    color: var(--primary);
+  }
+
+  .search-box {
+    display: flex;
+    align-items: center;
+    background: var(--light);
+    border: 1px solid var(--b);
+    border-radius: 10px;
+    padding: 0 12px;
+    margin-bottom: 10px;
+  }
+
+  .search-box input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 10px 0;
+    font-size: 0.85rem;
+    outline: none;
+    margin-left: 8px;
+  }
+
+  .filter-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .filter-row select {
+    flex: 1;
+    background: white;
+    border: 1px solid var(--b);
+    border-radius: 8px;
+    padding: 6px;
+    font-size: 0.75rem;
+  }
+
+  #list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+  }
+
+  /* Cards */
+  .card {
+    background: #fff;
+    border: 1px solid var(--b);
+    border-radius: 16px;
+    padding: 14px;
+    margin-bottom: 14px;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+
+  .cat-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--primary-light);
+    color: white;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .card .title { font-weight: 800; font-size: 1rem; margin-bottom: 4px; }
+
+  .card img {
+    width: 100%;
+    height: 130px;
+    object-fit: cover;
+    border-radius: 10px;
+    margin: 8px 0;
+  }
+
+  /* Map */
+  #map { flex: 1; position: relative; z-index: 10; }
+
+  .map-actions {
+    position: absolute;
+    right: 15px;
+    bottom: 15px;
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-map {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: white;
+    border: 1px solid var(--b);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  }
+
+  /* Assistant */
+  #hud {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 1000;
+    width: 380px;
+    max-width: calc(100vw - 30px);
+  }
+
+  #assistantUI {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--b);
+    border-radius: 20px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+    overflow: hidden;
+  }
+
+  .assist-header {
+    padding: 12px 16px;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    font-weight: 800;
+  }
+
+  .assist-body { padding: 15px; }
+
+  .ask-bar { display: flex; gap: 8px; margin-top: 10px; background: white; padding: 10px; border-top: 1px solid var(--b); }
+  .ask-bar input { flex: 1; padding: 8px 12px; border: 1px solid var(--b); border-radius: 8px; font-size: 0.85rem; }
+  .ask-bar button { background: var(--primary); color: white; border: none; width: 36px; border-radius: 8px; cursor: pointer; }
+
+  #chatHistory {
+    height: 350px;
+    overflow-y: auto;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: #f8fafc;
+  }
+  .chat-bubble {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    animation: fadeIn 0.3s ease-out;
+  }
+  .chat-bubble.user {
+    align-self: flex-end;
+    background: var(--primary);
+    color: white;
+    border-bottom-right-radius: 4px;
+  }
+  .chat-bubble.ai {
+    align-self: flex-start;
+    background: white;
+    color: var(--dark);
+    border: 1px solid var(--b);
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  }
+  .chat-bubble .sugg { display: flex; gap: 10px; padding: 8px; background: #f1f5f9; border-radius: 8px; margin-top: 8px; border: 1px solid var(--b); }
+  .chat-bubble .sugg img { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* AI Prompt Bar */
+  #aiPromptBar {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px 6px 6px;
+    width: 480px;
+    max-width: calc(100vw - 60px);
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(18px);
+    border: 1.5px solid var(--b);
+    border-radius: 999px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    transition: box-shadow 0.3s, border-color 0.3s;
+  }
+  #aiPromptBar:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 8px 30px rgba(255,143,0,0.18);
+  }
+  #aiPromptBar .ai-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: white url('sello.png') center / 28px no-repeat;
+    border: 2px solid var(--accent);
+    flex-shrink: 0;
+    cursor: pointer;
+    animation: pulseAttention 2s infinite;
+  }
+  #aiPromptBar input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 0.95rem;
+    font-family: var(--font);
+    outline: none;
+    color: var(--dark);
+  }
+  #aiPromptBar input::placeholder { color: #94a3b8; }
+  #aiPromptBar .ai-send {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  #aiPromptBar .ai-send:hover { background: var(--accent); }
+  @keyframes pulseAttention {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 143, 0, 0.7); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(255, 143, 0, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 143, 0, 0); }
+  }
+
+  .legend {
+    position: absolute;
+    left: 15px;
+    bottom: 15px;
+    background: white;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--b);
+    font-size: 9px;
+    z-index: 1000;
+  }
+
+  footer {
+    height: 36px;
+    background: white;
+    border-top: 1px solid var(--b);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    font-size: 9px;
+    color: #94a3b8;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div style="display:flex; align-items:center; gap:14px">
+      <img src="IPN-Logo.png" style="height:36px" alt="Logo">
+      <div>
+        <div style="font-family:var(--font-title); font-size:1.25rem; font-weight:800; line-height:1">OAXACA <span style="color:var(--primary)">EXPLORA</span></div>
+        <div style="font-size:9px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:1px; margin-top:2px">Experiencias & Patrimonio</div>
+      </div>
+    </div>
+    <nav class="nav-menu">
+      <a href="index.html" class="nav-link">Inicio</a>
+      <a href="pois.html" class="nav-link active">Experiencias</a>
+      <a href="modelos.html" class="nav-link">Inteligencia</a>
+      <a href="participacion.html" class="nav-link">Comunidad</a>
+    </nav>
+  </header>
+
+  <main>
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <h2>Descubrir</h2>
+        <div class="filter-row">
+          <select id="min-rate"><option value="0">⭐ Todas</option><option value="4">⭐ 4+</option></select>
+          <select id="sort"><option value="score">Recomendado</option><option value="name">A-Z</option></select>
+        </div>
+        <div id="chips" style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px"></div>
+      </div>
+      <div id="list"></div>
+    </aside>
+
+    <div id="map">
+      <div class="map-actions">
+        <button class="btn-map" id="btn-focus"><i class="fa-solid fa-expand"></i></button>
+        <button class="btn-map" id="btn-clear-routes"><i class="fa-solid fa-road"></i></button>
+      </div>
+      <div id="hud" style="display:none">
+        <div id="assistantUI">
+          <div class="assist-header"><span>ASISTENTE</span><button id="closeBtn" style="background:transparent; border:none; color:white; cursor:pointer">✕</button></div>
+          <div class="assist-body" style="padding:0; display:flex; flex-direction:column;">
+            <div id="chatHistory">
+               <div class="chat-bubble ai">
+                 <strong>¡Hola! Soy tu asistente TourLLM 👋</strong><br><br>
+                 Escríbeme lo que buscas y te crearé una ruta personalizada. Prueba con:
+                 <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">
+                   <span onclick="$('#ask').value='playas de Oaxaca';$('#send').click();" style="background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:12px;font-size:10px;cursor:pointer">🏖 playas</span>
+                   <span onclick="$('#ask').value='mezcal artesanal';$('#send').click();" style="background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:12px;font-size:10px;cursor:pointer">🥃 mezcal</span>
+                   <span onclick="$('#ask').value='comida y gastronomía';$('#send').click();" style="background:#fce7f3;color:#9d174d;padding:3px 8px;border-radius:12px;font-size:10px;cursor:pointer">🍽 gastronomía</span>
+                   <span onclick="$('#ask').value='sitios arqueológicos';$('#send').click();" style="background:#e0e7ff;color:#3730a3;padding:3px 8px;border-radius:12px;font-size:10px;cursor:pointer">🏛 ruinas</span>
+                   <span onclick="$('#ask').value='artesanías y talleres';$('#send').click();" style="background:#dcfce7;color:#166534;padding:3px 8px;border-radius:12px;font-size:10px;cursor:pointer">🎨 artesanías</span>
+                   <span onclick="$('#ask').value='naturaleza y senderismo';$('#send').click();" style="background:#f0fdf4;color:#15803d;padding:3px 8px;border-radius:12px;font-size:10px;cursor:pointer">🌿 naturaleza</span>
+                 </div>
+                 <div style="font-size:9px;color:#94a3b8;margin-top:8px"><i class="fa-solid fa-flask"></i> Este asistente utiliza datos simulados con fines de demostración.</div>
+               </div>
+            </div>
+            <div class="ask-bar"><input id="ask" type="text" placeholder="Escribe un mensaje…"><button id="send"><i class="fa-solid fa-paper-plane"></i></button></div>
+          </div>
+        </div>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div id="aiPromptBar">
+        <div class="ai-icon" id="aiIconBtn" title="Abrir Asistente"></div>
+        <input type="text" id="aiInput" placeholder="¿Qué te gustaría descubrir hoy en Oaxaca?">
+        <button class="ai-send" id="aiSend"><i class="fa-solid fa-paper-plane"></i></button>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div>© 2026 Oaxaca Explora · IPN CVDR</div>
+    <div>Red de Turismo Biocultural</div>
+  </footer>
+</div>
+
+<script>
+const COMMUNITY_GEOJSON = {
+  "type": "FeatureCollection",
+  "features": [
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.883497, 17.277081]}, "properties": {"name": "Museo Comunitario de San Pablo Huitzo (Ex Convento)", "category": "espacios culturales y artísticos", "description": "Museo comunitario ubicado en el ex‑convento del siglo XVI; exhibe arte prehispánico y colonial y contiene salas de arqueología, historia del convento y del ferrocarril.", "Lugar": "San pablo Huitzo", "source_citation": "https://sic.cultura.gob.mx/ficha.php?table=museo&table_id=570", "media": "San-Pablo-Huitzo-.jpg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.884605, 17.277072]}, "properties": {"name": "Casa de la Cultura Federico Flores Aguilar", "category": "espacios culturales y artísticos", "description": "Centro cultural municipal que ofrece talleres de artes plásticas, danza, música y alberga biblioteca y auditorio.", "Lugar": "San pablo Huitzo", "source_citation": "https://sic.cultura.gob.mx/ficha.php?table=centro_cultural&table_id=922", "media": "casa.jpeg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.884605, 17.277072]}, "properties": {"name": "Biblioteca Pública Municipal Miguel Cruz Caballero", "category": "espacios culturales y artísticos", "description": "Biblioteca pública municipal ubicada dentro de la Casa de la Cultura; brinda servicios de lectura y préstamo de libros.", "Lugar": "San pablo Huitzo", "source_citation": "https://directorio-dgb.cultura.gob.mx/ficha.php?idbiblio=343", "media": "bibloteca.png"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.88334, 17.27706]}, "properties": {"name": "Iglesia y ex‑convento de San Pablo Huitzo", "category": "sitios de patrimonio", "description": "Templo y ex‑convento del siglo XVI donde se fundó el pueblo; estructura de piedra con capillas, atrio y claustro; actual parroquia y sede del museo comunitario.", "Lugar": "San pablo Huitzo", "source_citation": "https://sitiosymonumentos.cultura.gob.mx", "media": "Ex Convento San Pablo Huitzo - YouTube"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.86595, 17.24338]}, "properties": {"name": "Cerro de la Campana (Huijazoo) Zona Arqueológica", "category": "sitios de patrimonio", "description": "Zona arqueológica zapoteca situada en el cerro de la Campana; alberga la tumba 5 con pinturas murales y esculturas.", "Lugar": "San pablo Huitzo", "source_citation": "https://lugares.inah.gob.mx/es/node/4417", "media": "Cerro de la Campana.jpg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.88464, 17.2767]}, "properties": {"name": "Parque Municipal Huitzo", "category": "lugares de expresión popular y tradicional", "description": "Parque central de la cabecera municipal con jardines, juegos y áreas de convivencia; colinda con el kiosco y la fuente.", "Lugar": "San pablo Huitzo", "source_citation": "https://mapcarta.com/es/W565536990", "media": "fuente Municipio Huitzo.jpg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.88455, 17.27707]}, "properties": {"name": "Plaza cívica H. Ayuntamiento de Huitzo", "category": "lugares de expresión popular y tradicional", "description": "Plaza cívica donde se realizan eventos comunitarios y ceremonias; contigua al palacio municipal y a la casa de la cultura.", "Lugar": "San pablo Huitzo", "source_citation": "https://mapcarta.com/es/W566828087", "media": "Plaza cívica.jpg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.88608, 17.2753]}, "properties": {"name": "Parque ‘Los Sabinos’", "category": "lugares de expresión popular y tradicional", "description": "Área verde con árboles sabinos y espacios de recreación ubicada al suroeste de la cabecera.", "Lugar": "San pablo Huitzo", "source_citation": "https://mapcarta.com/W566788197", "media": "Parque los sabinos Huitzo.jpg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.88481, 17.27688]}, "properties": {"name": "Cancha de básquetbol Primera Sección", "category": "lugares de expresión popular y tradicional", "description": "Cancha deportiva de uso comunitario ubicada en la primera sección sobre la avenida Cuauhxilotitlán.", "Lugar": "San pablo Huitzo", "source_citation": "https://mapcarta.com/es/N12452598245", "media": "Cancha de Básquetbol.jpg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.88454, 17.2767]}, "properties": {"name": "Fuente Municipio Huitzo", "category": "lugares de expresión popular y tradicional", "description": "Fuente ornamental en el parque municipal utilizada como punto de referencia y descanso.", "Lugar": "San pablo Huitzo", "source_citation": "https://mapcarta.com/es/W565536991", "media": "fuente Municipio Huitzo.jpg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.88922, 17.28193]}, "properties": {"name": "Mercado Municipal de San Pablo Huitzo", "category": "lugares de expresión popular y tradicional", "description": "Mercado principal del municipio; los domingos se convierte en placita donde se venden tamales, atole, tlayudas y otros platillos tradicionales.", "Lugar": "San pablo Huitzo", "source_citation": "https://cybo.com", "media": "Mercado Huitzo.jpeg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.88141, 17.2821]}, "properties": {"name": "Taller de gráfica Enrique Flores", "category": "centros de enseñanza y difusión", "description": "Taller de grabado y artes gráficas que ofrece cursos de monotipo y técnicas tradicionales de impresión.", "Lugar": "San pablo Huitzo", "source_citation": "https://mapcarta.com", "media": "taller de gráfica Enrique Flores.jpg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.87279, 17.26895]}, "properties": {"name": "Zona Arqueológica tumba No. 5", "category": "Zona arqueológica", "description": "Importante hallazgo prehispánico con murales y ofrendas rituales.", "Lugar": "San pablo Huitzo", "source_citation": "https://inah.gob.mx", "media": "Tumba no. 5(1).jpg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.88454, 17.27725]}, "properties": {"name": "Palacio Municipal de San Pablo Huitzo", "category": "sitios de patrimonio", "description": "Sede del ayuntamiento y autoridad local; edificio histórico situado frente a la plaza cívica.", "Lugar": "San pablo Huitzo", "source_citation": "https://mapcarta.com", "media": "Palacio Municipal de San Pablo Huitzo.webp"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.88424, 17.27723]}, "properties": {"name": "Monumento a Don Benito Juárez García", "category": "sitios de patrimonio", "description": "Monumento conmemorativo dedicado al ex presidente Benito Juárez.", "Lugar": "San pablo Huitzo", "source_citation": "https://mapcarta.com", "media": "Monumento BJ.jpg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.88455, 17.27707]}, "properties": {"name": "Feria anual de San Pablo Huitzo", "category": "lugares de expresión popular y tradicional", "description": "Fiesta patronal que se celebra cada enero con convites, calenda, cabalgata y expo feria.", "Lugar": "San pablo Huitzo", "source_citation": "https://oaxaca.gob.mx", "media": "Feria-Huitzo.jpeg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.7235, 17.0654]}, "properties": {"name": "Templo de Santo Domingo de Guzmán", "category": "sitios de patrimonio", "description": "Joya del barroco novohispano y centro neurálgico de la cultura oaxaqueña.", "Lugar": "Oaxaca de Juárez", "source_citation": "", "media": "Templo de San Francisco de Asís.jpg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.7262, 17.0583]}, "properties": {"name": "Mercado 20 de Noviembre", "category": "lugares de expresión popular y tradicional", "description": "Corazón gastronómico de Oaxaca, famoso por el Pasillo de Humo y la venta de pan de yema y chocolate.", "Lugar": "Oaxaca de Juárez", "source_citation": "", "media": "Mercado municipal San Pablo Huitzo.jpg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.6358, 17.0469]}, "properties": {"name": "Árbol del Tule", "category": "rutas y espacios bioculturales", "description": "Ahuehuete milenario con el tronco de mayor diámetro del mundo, símbolo de resiliencia natural.", "Lugar": "Santa María del Tule", "source_citation": "", "media": "Jardines y Huertas Comunitarias..jpg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.3592, 16.9234]}, "properties": {"name": "Zona Arqueológica de Mitla", "category": "Zona arqueológica", "description": "Lugar de descanso zapoteca famoso por sus grecas finamente talladas en piedra.", "Lugar": "San Pablo Villa de Mitla", "source_citation": "", "media": "Tumba no. 5(1).jpg"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.2764, 17.0601]}, "properties": {"name": "Cascadas de Hierve el Agua", "category": "rutas y espacios bioculturales", "description": "Impresionantes cascadas petrificadas y sistema de riego zapoteca ancestral.", "Lugar": "San Lorenzo Albarradas", "source_citation": "", "media": "conamp.jpg", "tags": "cascada agua naturaleza ecoturismo senderismo montaña"}},
+
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.1333, 15.6667]}, "properties": {"name": "Playa Zipolite", "category": "rutas y espacios bioculturales", "description": "Playa emblemática de la costa oaxaqueña, conocida por su oleaje y vida bohemia. Ideal para surf y atardeceres espectaculares.", "Lugar": "San Pedro Pochutla", "media": "conamp.jpg", "tags": "playa mar costa sol arena surf verano vacaciones oceano pacifico", "simulado": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.1802, 15.6947]}, "properties": {"name": "Playa Mazunte", "category": "rutas y espacios bioculturales", "description": "Santuario de tortugas marinas con playas vírgenes. Centro Nacional Mexicano de la Tortuga y cosmética natural.", "Lugar": "Mazunte", "media": "conamp.jpg", "tags": "playa mar tortuga ecologia costa sol arena vacaciones oceano pacifico", "simulado": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-97.0614, 15.8553]}, "properties": {"name": "Bahías de Huatulco", "category": "rutas y espacios bioculturales", "description": "Complejo turístico con 9 bahías y 36 playas de arena dorada. Parque Nacional con arrecifes de coral y buceo.", "Lugar": "Huatulco", "media": "conamp.jpg", "tags": "playa mar bahia costa sol arena buceo snorkel coral hotel resort vacaciones pacifico turismo", "simulado": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.2058, 15.6792]}, "properties": {"name": "Playa San Agustinillo", "category": "rutas y espacios bioculturales", "description": "Pequeña playa de oleaje moderado rodeada de vegetación tropical, perfecta para familias y kayak.", "Lugar": "San Agustinillo", "media": "Zona verde atrio de la Iglesia.jpg", "tags": "playa mar costa sol arena kayak familia vacaciones pacifico", "simulado": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-97.7428, 15.9189]}, "properties": {"name": "Puerto Escondido - Playa Zicatela", "category": "rutas y espacios bioculturales", "description": "Capital mexicana del surf con olas de clase mundial. Pipeline mexicano reconocido internacionalmente.", "Lugar": "Puerto Escondido", "media": "conamp.jpg", "tags": "playa mar surf ola costa sol arena vacaciones oceano pacifico deporte extremo", "simulado": true}},
+
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.4861, 16.9167]}, "properties": {"name": "Destilería de Mezcal Real Minero", "category": "rutas y espacios bioculturales", "description": "Palenque artesanal ancestral donde se produce mezcal de agave espadín y tobalá en ollas de barro.", "Lugar": "Santa Catarina Minas", "media": "Mercado Huitzo.jpeg", "tags": "mezcal agave destileria palenque bebida artesanal tradicion maguey licor", "simulado": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.5233, 16.8950]}, "properties": {"name": "Ruta del Mezcal - Santiago Matatlán", "category": "rutas y espacios bioculturales", "description": "Capital mundial del mezcal. Más de 100 palenques artesanales donde se destila el espíritu de Oaxaca.", "Lugar": "Santiago Matatlán", "media": "Mercado municipal San Pablo Huitzo.jpg", "tags": "mezcal agave ruta palenque destileria bebida artesanal tradicion maguey licor tour", "simulado": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.7100, 17.0700]}, "properties": {"name": "Casa del Mezcal - Centro Histórico", "category": "lugares de expresión popular y tradicional", "description": "Bar y museo dedicado al mezcal con degustaciones de más de 50 variedades de agave.", "Lugar": "Oaxaca de Juárez", "media": "3 mercado municipal.jpg", "tags": "mezcal agave bar degustacion bebida tradicion museo centro historico", "simulado": true}},
+
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.7250, 17.0620]}, "properties": {"name": "Mercado Benito Juárez", "category": "lugares de expresión popular y tradicional", "description": "Mercado tradicional donde se encuentran chapulines, mole negro, quesillo, chocolate y artesanías típicas.", "Lugar": "Oaxaca de Juárez", "media": "Mercado municipal.jpg", "tags": "gastronomia comida mercado chapulines mole quesillo chocolate artesanias compras tradicion", "simulado": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.7180, 17.0630]}, "properties": {"name": "Restaurante Tierra del Sol", "category": "lugares de expresión popular y tradicional", "description": "Alta cocina oaxaqueña con mole de 7 tipos, tlayudas gourmet, tasajo y mezcal artesanal.", "Lugar": "Oaxaca de Juárez", "media": "Mercado Huitzo.jpeg", "tags": "gastronomia comida restaurante mole tlayuda tasajo cocina gourmet tradicion", "simulado": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.7300, 17.0550]}, "properties": {"name": "Calle de los Sabores Oaxaqueños", "category": "lugares de expresión popular y tradicional", "description": "Corredor gastronómico con puestos de tamales, atole, memelas, empanadas de amarillo y tejate.", "Lugar": "Oaxaca de Juárez", "media": "3 mercado municipal.jpg", "tags": "gastronomia comida calle tamales atole memelas empanadas tejate antojitos tradicion", "simulado": true}},
+
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.5200, 17.0290]}, "properties": {"name": "Talleres de Tapetes - Teotitlán del Valle", "category": "centros de enseñanza y difusión", "description": "Comunidad zapoteca famosa por sus tapetes de lana teñidos con tintes naturales de cochinilla e índigo.", "Lugar": "Teotitlán del Valle", "media": "arte huitzo.jpeg", "tags": "textil tapete artesania lana tinte cochinilla telar zapoteca tradicion tejido", "simulado": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.7400, 16.9900]}, "properties": {"name": "Taller de Barro Negro - San Bartolo Coyotepec", "category": "centros de enseñanza y difusión", "description": "Cuna del barro negro de Oaxaca. Talleres donde se moldea y hornea la cerámica negra brillante.", "Lugar": "San Bartolo Coyotepec", "media": "arte2 huitzo.jpeg", "tags": "barro negro ceramica artesania alfareria taller tradicion arte", "simulado": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.6700, 16.9600]}, "properties": {"name": "Talleres de Alebrijes - San Martín Tilcajete", "category": "centros de enseñanza y difusión", "description": "Figuras fantásticas talladas en madera de copal y pintadas a mano con colores vibrantes.", "Lugar": "San Martín Tilcajete", "media": "Jardin del arte.png", "tags": "alebrije artesania madera copal talla pintura arte color fantasia tradicion", "simulado": true}},
+
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.7690, 17.0430]}, "properties": {"name": "Zona Arqueológica de Monte Albán", "category": "Zona arqueológica", "description": "Capital zapoteca y Patrimonio de la Humanidad UNESCO. Gran plaza ceremonial, tumbas y observatorio astronómico.", "Lugar": "Oaxaca", "media": "Zona Arqueológica Huijazoo.jpg", "tags": "arqueologia zona ruinas zapoteca monte alban piramide UNESCO patrimonio historia prehispanico", "simulado": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.4500, 17.0200]}, "properties": {"name": "Zona Arqueológica de Yagul", "category": "Zona arqueológica", "description": "Fortaleza zapoteca en lo alto de un cerro con el Palacio de los Seis Patios y vistas panorámicas.", "Lugar": "Tlacolula de Matamoros", "media": "Tumba no. 5(1).jpg", "tags": "arqueologia zona ruinas zapoteca yagul fortaleza patrimonio historia prehispanico", "simulado": true}},
+
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.7230, 17.0690]}, "properties": {"name": "Andador Turístico de Macedonio Alcalá", "category": "sitios de patrimonio", "description": "Principal corredor peatonal del centro histórico, flanqueado por casonas coloniales, galerías y cafés.", "Lugar": "Oaxaca de Juárez", "media": "Huitzo Andador.jpg", "tags": "andador centro historico paseo colonial galeria cafe cultura caminar turismo ciudad", "simulado": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.7240, 17.0610]}, "properties": {"name": "Zócalo de Oaxaca", "category": "sitios de patrimonio", "description": "Corazón social de la ciudad, rodeado de portales con restaurantes y música en vivo por las tardes.", "Lugar": "Oaxaca de Juárez", "media": "Plaza central de San Pablo Huitzo.jpg", "tags": "zocalo plaza centro ciudad musica cultura paseo noche vida nocturna", "simulado": true}},
+
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.3900, 17.1100]}, "properties": {"name": "Sierra Norte - Pueblos Mancomunados", "category": "rutas y espacios bioculturales", "description": "Red de ecoturismo comunitario con cabañas, senderismo, ciclismo de montaña y bosque de niebla.", "Lugar": "Sierra Norte", "media": "Zona agricola Huitzo.jpg", "tags": "sierra montaña ecoturismo senderismo bicicleta bosque niebla naturaleza aventura comunidad cabañas", "simulado": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-96.4200, 17.0800]}, "properties": {"name": "Mirador de la Cruz - Sierra Norte", "category": "rutas y espacios bioculturales", "description": "Punto panorámico a 3,200 msnm con vistas de los valles centrales y bosques de pino-encino.", "Lugar": "Benito Juárez (Sierra Norte)", "media": "Zona verde atrio de la Iglesia.jpg", "tags": "mirador sierra montaña vista panorama naturaleza senderismo aventura ecoturismo", "simulado": true}}
+  ]
+};
+
+const $=s=>document.querySelector(s);
+const slug=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$|_/g,'');
+const colorVar=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+const map=L.map('map',{center:[17.277,-96.884],zoom:15,zoomControl:false});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© CARTO'}).addTo(map);
+
+const CAT_COLORS={
+  'espacios culturales y artísticos':'--c-culturales',
+  'sitios de patrimonio':'--c-patrimonio',
+  'lugares de expresión popular y tradicional':'--c-popular',
+  'rutas y espacios bioculturales':'--c-rutas',
+  'centros de enseñanza y difusión':'--c-ensenanza',
+  'Zona arqueológica':'--c-zona'
+};
+
+const cluster=L.markerClusterGroup().addTo(map);
+const routesLayer=L.layerGroup().addTo(map);
+const simulatedLayer=L.layerGroup().addTo(map);
+let markersIndex=[], activeCats=[], myPos=null;
+
+// Generar puntos aleatorios simulados en la región central (Valles)
+for(let i=0; i<30; i++) {
+  const rLat = 17.06 + (Math.random() - 0.5) * 0.5;
+  const rLng = -96.72 + (Math.random() - 0.5) * 0.5;
+  L.circleMarker([rLat, rLng], {radius: 4, color: '#94a3b8', fillColor: '#cbd5e1', fillOpacity: 0.6, weight: 1})
+   .bindPopup('<div style="font-size:11px">Punto de Datos Simulado<br><small style="color:#64748b">Sensor de actividad turística</small></div>')
+   .addTo(simulatedLayer);
+}
+
+let DB=COMMUNITY_GEOJSON.features.map(f=>({
+  id:slug(f.properties.name),
+  geometry:f.geometry,
+  properties:f.properties,
+  community_score: Math.random() * 0.5 + 0.5 // Simulacion de señal comunitaria (0.5 a 1.0)
+}));
+
+function cardHTML(p){
+  return `<div class="card" data-id="${p.id}">
+    <span class="cat-tag">${p.properties.category}</span>
+    <div class="title">${p.properties.name}</div>
+    <p style="font-size:11px; color:#475569; margin:4px 0">${p.properties.description.slice(0,80)}…</p>
+    ${p.properties.media?`<img src="${p.properties.media}" onerror="this.style.display='none'">`:''}
+  </div>`;
+}
+
+function render(){
+  const list=DB.filter(p=>{
+    const inCats=activeCats.length===0?true:activeCats.includes(p.properties.category);
+    return inCats;
+  });
+
+  const box=$('#list'); box.innerHTML='';
+  cluster.clearLayers(); markersIndex=[];
+
+  list.forEach(p=>{
+    const el=document.createElement('div'); el.innerHTML=cardHTML(p);
+    el.firstElementChild.onclick=()=>selectPlace(p.id,true);
+    box.appendChild(el.firstElementChild);
+
+    const m=L.marker([p.geometry.coordinates[1],p.geometry.coordinates[0]]);
+    m.bindPopup(`<strong>${p.properties.name}</strong>`);
+    cluster.addLayer(m);
+    markersIndex.push({id:p.id, marker:m});
+  });
+}
+
+function selectPlace(id,fly){
+  const mk=markersIndex.find(k=>k.id===id);
+  if(!mk) return;
+  if(fly) map.flyTo(mk.marker.getLatLng(),17);
+  mk.marker.openPopup();
+}
+
+function renderLegend(){
+  const box=$('#legend'); box.innerHTML='';
+  Object.entries(CAT_COLORS).forEach(([k,v])=>{
+    const row=document.createElement('div'); row.style.display='flex'; row.style.alignItems='center'; row.style.gap='5px'; row.style.marginBottom='2px';
+    row.innerHTML=`<div style="width:8px; height:8px; background:var(${v})"></div>${k}`;
+    box.appendChild(row);
+  });
+  
+  const simRow=document.createElement('div'); simRow.style.display='flex'; simRow.style.alignItems='center'; simRow.style.gap='5px'; simRow.style.marginTop='6px'; simRow.style.paddingTop='4px'; simRow.style.borderTop='1px solid var(--b)';
+  simRow.innerHTML=`<div style="width:8px; height:8px; border-radius:50%; background:#cbd5e1; border:1px solid #94a3b8"></div>Datos Simulados`;
+  box.appendChild(simRow);
+}
+
+$('#aiIconBtn').onclick=()=> { $('#hud').style.display='block'; };
+$('#closeBtn').onclick=()=> { $('#hud').style.display='none'; };
+$('#btn-focus').onclick=()=> map.fitBounds(cluster.getBounds());
+$('#btn-clear-routes').onclick=()=> { routesLayer.clearLayers(); };
+
+// AI Prompt Bar: captura texto y lo envía al chat
+function submitFromPromptBar() {
+  const q = $('#aiInput').value.trim();
+  if (!q) return;
+  $('#aiInput').value = '';
+  // Abrir el chat
+  $('#hud').style.display = 'block';
+  // Insertar la consulta en el chat y disparar TourLLM
+  $('#ask').value = q;
+  $('#send').click();
+}
+$('#aiSend').onclick = submitFromPromptBar;
+$('#aiInput').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') submitFromPromptBar();
+});
+
+const cats=new Set(DB.map(p=>p.properties.category));
+cats.forEach(c=>{
+  const b=document.createElement('button'); b.textContent=c;
+  b.style.cssText='padding:3px 6px; border-radius:4px; border:1px solid var(--b); background:white; font-size:9px; cursor:pointer';
+  b.onclick=()=>{
+    if(activeCats.includes(c)) { activeCats=activeCats.filter(x=>x!==c); b.style.background='white'; }
+    else { activeCats.push(c); b.style.background='var(--primary-light)'; b.style.color='white'; }
+    render();
+  };
+  $('#chips').appendChild(b);
+});
+
+// ==========================================
+// SIMULACIÓN TOURLLM + SEÑALES COMUNITARIAS
+// ==========================================
+function simulateTourLLM(query) {
+  if (!query) return [];
+  const terms = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').split(/\s+/).filter(t => t.length > 2);
+  
+  // Fase 1: Retrieval y Scoring Semántico + Comunitario (ahora incluye tags)
+  let scored = DB.map(p => {
+    let text = (p.properties.name + " " + p.properties.description + " " + p.properties.category + " " + (p.properties.tags || '') + " " + (p.properties.Lugar || '')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    let matchCount = terms.filter(t => text.includes(t)).length;
+    let relevance = terms.length ? (matchCount / terms.length) : 0;
+    
+    // Heurística TourLLM: Combina relevancia del usuario con impacto comunitario (0.6 / 0.4)
+    let finalScore = (relevance * 0.6) + (p.community_score * 0.4);
+    return { ...p, score: finalScore, relevance };
+  });
+
+  // Filtrar relevantes y tomar los top 5
+  scored = scored.filter(p => p.relevance > 0).sort((a,b) => b.score - a.score).slice(0, 5);
+  if (scored.length === 0) scored = DB.map(p => ({...p, score: p.community_score, relevance: 0})).sort((a,b) => b.score - a.score).slice(0, 4);
+
+  // Fase 2: Spatial Routing (Nearest Neighbor Heuristic)
+  let route = [];
+  if (scored.length > 0) {
+    route.push(scored[0]);
+    let remaining = scored.slice(1);
+    let current = route[0];
+    
+    while(remaining.length > 0) {
+      let closestIdx = 0, minD = Infinity;
+      for (let i = 0; i < remaining.length; i++) {
+        let d = turf.distance(
+          [current.geometry.coordinates[0], current.geometry.coordinates[1]],
+          [remaining[i].geometry.coordinates[0], remaining[i].geometry.coordinates[1]]
+        );
+        if (d < minD) { minD = d; closestIdx = i; }
+      }
+      current = remaining[closestIdx];
+      route.push(current);
+      remaining.splice(closestIdx, 1);
+    }
+  }
+  return route;
+}
+
+$('#send').onclick = () => {
+  const q = $('#ask').value.trim();
+  if (!q) return;
+  $('#ask').value = '';
+  
+  const chat = $('#chatHistory');
+  
+  // 1. Burbuja del usuario
+  const userBubble = document.createElement('div');
+  userBubble.className = 'chat-bubble user';
+  userBubble.innerText = q;
+  chat.appendChild(userBubble);
+  chat.scrollTop = chat.scrollHeight;
+
+  // 2. Burbuja de "escribiendo"
+  const typingBubble = document.createElement('div');
+  typingBubble.className = 'chat-bubble ai';
+  typingBubble.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analizando tu consulta con TourLLM...';
+  chat.appendChild(typingBubble);
+  chat.scrollTop = chat.scrollHeight;
+
+  // 3. Simular delay del modelo LLM
+  setTimeout(() => {
+    typingBubble.remove();
+    
+    const route = simulateTourLLM(q);
+    const aiBubble = document.createElement('div');
+    aiBubble.className = 'chat-bubble ai';
+    
+    if (route.length === 0) {
+      aiBubble.innerHTML = 'Lo siento, no encontré lugares que coincidan con "<strong>' + q + '</strong>". Prueba con palabras como: <em>playa, mezcal, comida, ruinas, artesanías, naturaleza</em>.';
+    } else {
+      const hasSimulated = route.some(p => p.properties.simulado);
+      aiBubble.innerHTML = `<div style="font-weight:800;color:var(--primary);margin-bottom:6px"><i class="fa-solid fa-wand-magic-sparkles"></i> Encontré ${route.length} lugares para "${q}":</div>`;
+      if (hasSimulated) {
+        aiBubble.innerHTML += '<div style="font-size:10px;background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:4px 8px;margin-bottom:8px;color:#92400e"><i class="fa-solid fa-flask"></i> Algunos resultados contienen <strong>datos simulados</strong> con fines de demostración.</div>';
+      }
+      route.forEach((p, idx) => {
+        const isSim = p.properties.simulado;
+        aiBubble.innerHTML += `
+          <div class="sugg" onclick="selectPlace('${p.id}', true)" style="cursor:pointer; position:relative">
+            <div style="font-weight:900;font-size:16px;color:var(--accent);width:20px;text-align:center">${idx+1}</div>
+            ${p.properties.media ? `<img src="${p.properties.media}" onerror="this.style.display='none'">` : ''}
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:bold;color:var(--dark)">${p.properties.name}</div>
+              <div style="font-size:10px;color:#64748b;margin-top:1px">${p.properties.Lugar || ''} · Relevancia: ${(p.score*100).toFixed(0)}%</div>
+              <div style="font-size:10px;color:#475569;margin-top:2px">${p.properties.description.slice(0,90)}…</div>
+              ${isSim ? '<span style="font-size:8px;background:#fef3c7;color:#92400e;border-radius:3px;padding:1px 4px;margin-top:3px;display:inline-block">⚠ SIMULADO</span>' : ''}
+            </div>
+          </div>
+        `;
+      });
+      
+      // Trazar ruta
+      routesLayer.clearLayers();
+      if (route.length > 1) {
+        const latlngs = route.map(p => [p.geometry.coordinates[1], p.geometry.coordinates[0]]);
+        const line = L.polyline(latlngs, {color: '#FF8F00', weight: 4, dashArray: '5, 8'}).addTo(routesLayer);
+        
+        route.forEach((p, i) => {
+           L.circleMarker([p.geometry.coordinates[1], p.geometry.coordinates[0]], {
+              radius: 6, color: '#FF8F00', fillColor: '#fff', fillOpacity: 1, weight: 3
+           }).addTo(routesLayer).bindTooltip(`Parada ${i+1}`, {permanent: true, direction: 'top', className:'map-tooltip'});
+        });
+        
+        map.fitBounds(line.getBounds(), {padding: [50,50]});
+      } else if (route.length === 1) {
+        map.flyTo([route[0].geometry.coordinates[1], route[0].geometry.coordinates[0]], 16);
+      }
+    }
+    
+    chat.appendChild(aiBubble);
+    chat.scrollTop = chat.scrollHeight;
+  }, 1200); // 1.2s delay para mayor realismo
+};
+// Soporte para Enter en input
+$('#ask').addEventListener('keypress', function (e) {
+  if (e.key === 'Enter') $('#send').click();
+});
+
+render(); renderLegend();
+</script>
+<style>
+.map-tooltip { background:var(--accent); border:none; color:white; font-weight:800; font-size:10px; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.2); }
+.map-tooltip::before { display:none; }
+</style>
+</body>
+</html>

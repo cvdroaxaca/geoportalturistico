@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Comunidad | OAXACA EXPLORA</title>
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme:{extend:{
+      colors:{brand:'#7a1531', hoja:'#16a34a', oro:'#d1a84f', crema:'#fffaf2'},
+      boxShadow:{deep:'0 28px 72px rgba(0,0,0,.25)'},
+      animation:{
+        float:'float 6s ease-in-out infinite',
+        glow:'glow 2.2s ease-in-out infinite',
+        spinSlow:'spin 26s linear infinite',
+        spinSlower:'spin 90s linear infinite',
+        pop:'pop .5s ease-out both',
+        ticker:'ticker 28s linear infinite',
+        wiggle:'wiggle 12s ease-in-out infinite'
+      },
+      keyframes:{
+        float:{'0%,100%':{transform:'translateY(-2px)'},'50%':{transform:'translateY(6px)'}},
+        glow:{'0%,100%':{boxShadow:'0 0 0 rgba(22,163,74,0)'},'50%':{boxShadow:'0 0 0 12px rgba(22,163,74,.14)'}},
+        pop:{'0%':{transform:'scale(.9)',opacity:.0},'100%':{transform:'scale(1)',opacity:1}},
+        ticker:{'0%':{transform:'translateX(0)'},'100%':{transform:'translateX(-50%)'}},
+        wiggle:{'0%':{transform:'rotate(0)'},'50%':{transform:'rotate(.8deg)'},'100%':{transform:'rotate(0)'}}
+      }
+    }}
+  }
+</script>
+
+<!-- Leaflet -->
+<link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+
+<!-- Fuente -->
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --primary: #E34C26;
+    --primary-light: #F17551;
+    --secondary: #2A9D8F;
+    --accent: #E9C46A;
+    --dark: #0F172A;
+    --bg: #F8FAFC;
+    --font-main: 'Inter', sans-serif;
+    --font-title: 'Outfit', sans-serif;
+  }
+  html,body{height:100%}
+  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+  .grain:before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' opacity='.06'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mix-blend-mode:multiply
+  }
+  .hero-bg{
+    background:
+      radial-gradient(1100px 520px at 90% -10%, rgba(22,163,74,.16), transparent 60%),
+      radial-gradient(900px 520px at -10% 100%, rgba(122,21,49,.22), transparent 60%),
+      linear-gradient(135deg,#ffffff,#f6faf7 50%,#fffdf6);
+  }
+  .badge{
+    display:inline-flex;align-items:center;gap:.5rem;
+    border:1px solid rgba(22,163,74,.28);
+    background:#ecfdf5;color:#064e3b;border-radius:999px;
+    padding:.38rem .7rem;font-weight:600;font-size:.92rem
+  }
+  .ribbon{position:relative;height:44px;overflow:hidden}
+  .ribbon .track{white-space:nowrap;display:inline-block;padding-left:100%;}
+  .card{background:#fff;border:1px solid #e7efe9;border-radius:1.25rem;box-shadow:0 14px 48px rgba(0,0,0,.08)}
+  #map{height:420px;border-radius:1.25rem;border:1px solid #e7efe9}
+  .drop{
+    border:2px dashed rgba(22,163,74,.35);
+    border-radius:1rem;background:#f8fffb
+  }
+  .token{border:1px solid #e7efe9;border-radius:999px;background:#fff;padding:.25rem .6rem;font-size:.8rem}
+
+  /* Orbe */
+  .orb { width: 20rem; height: 20rem }
+  @media (min-width: 768px){ .orb { width: 24rem; height: 24rem } }
+  .word-chip{
+    position:absolute; left:50%; top:50%;
+    transform-origin:center;
+    background:#fff;color:#064e3b;
+    border:1px solid rgba(16,185,129,.25);
+    font-weight:700;font-size:.9rem;white-space:nowrap;
+    padding:.3rem .6rem;border-radius:999px;
+    box-shadow:0 8px 22px rgba(0,0,0,.08);
+    pointer-events:none;
+  }
+
+  /* Header */
+  header {
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 14px;
+  }
+
+  /* NAV (estilo institucional unificado) */
+  .header-premium{
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--b);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+  }
+
+  .nav-menu {
+    display: flex;
+    gap: 8px;
+  }
+
+  .nav-link {
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--dark);
+    transition: all 0.2s;
+  }
+
+  .nav-link:hover {
+    background: var(--bg);
+    color: var(--primary);
+  }
+
+  .nav-link.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(13, 71, 161, 0.2);
+  }
+  .brand img {
+    height: 36px;
+    border-radius: 8px;
+  }
+  header .title strong {
+    display: block;
+    font-weight: 800;
+    letter-spacing: .2px;
+  }
+  header .kpis {
+    display: flex;
+    gap: 8px;
+  }
+  header .stat {
+    background: rgba(255,255,255,.1);
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 12px;
+    padding: 6px 10px;
+  }
+  header .stat .v {
+    font-weight: 800;
+  }
+
+  /* NAV principal */
+  .nav {
+    background: #ffffff;
+    border-bottom: 1px solid var(--b);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    overflow: auto; /* scroll horizontal en móviles */
+    -webkit-overflow-scrolling: touch;
+    margin-top: 0;
+  }
+  .nav a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    text-decoration: none;
+    color: #0f3d26;
+    font-weight: 600;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .nav a:hover {
+    background: #f3faf6;
+    border-color: #dcefe3;
+  }
+  .nav a.active {
+    background: linear-gradient(180deg, #ecfdf5, #d1fae5);
+    color: #064e3b;
+    border-color: #b3f0d0;
+    box-shadow: 0 6px 16px rgba(5,94,40,.12);
+  }
+</style>
+</head>
+
+<body class="bg-white text-gray-800 selection:bg-emerald-100/80 selection:text-gray-900">
+
+<!-- NAV / HEADER SUPERIOR -->
+<header class="header-premium">
+  <div style="display:flex; align-items:center; gap:14px">
+    <img src="IPN-Logo.png" style="height:36px" alt="Logo">
+    <div>
+      <div style="font-family:var(--font-title); font-size:1.25rem; font-weight:800; line-height:1; color:var(--primary)">OAXACA EXPLORA</div>
+      <div style="font-size:9px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:1px; margin-top:2px">Experiencias & Patrimonio</div>
+    </div>
+  </div>
+  <nav class="nav-menu">
+    <a href="index.html" class="nav-link">Inicio</a>
+    <a href="pois.html" class="nav-link">Experiencias</a>
+    <a href="modelos.html" class="nav-link">Inteligencia</a>
+    <a href="participacion.html" class="nav-link active">Comunidad</a>
+  </nav>
+</header>
+
+
+
+<!-- FRANJA DE LOGOS & ORGANIZADORES -->
+<section class="bg-emerald-50 border-b border-emerald-100">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-3">
+    <p class="text-xs md:text-sm font-semibold text-emerald-900 tracking-wide">
+      Organizan y acompañan:
+    </p>
+    <div class="flex flex-wrap items-center gap-4 md:gap-8">
+      <!-- Unión de Comunidades y Ejidos -->
+      <div class="flex items-center gap-3 min-w-[220px]">
+        <img src="union-comunidades.jpg"
+             class="h-14 md:h-20 w-auto object-contain bg-white rounded-md border border-emerald-100 px-2 py-1"
+             alt="Unión de Comunidades y Ejidos de los Valles Centrales de Oaxaca por la Conservación de Bosques y Agua A.C.">
+        <span class="text-[11px] md:text-xs text-gray-800 leading-snug">
+          Unión de Comunidades y Ejidos de los Valles Centrales de Oaxaca
+          por la Conservación de Bosques y Agua A.C.
+        </span>
+      </div>
+
+      <!-- CONANP -->
+      <div class="flex items-center gap-3 min-w-[200px]">
+        <img src="conamp.jpg"
+             class="h-14 md:h-20 w-auto object-contain bg-white rounded-md border border-emerald-100 px-2 py-1"
+             alt="Comisión Nacional de Áreas Naturales Protegidas (CONANP)">
+        <span class="text-[11px] md:text-xs text-gray-800 leading-snug">
+          Comisión Nacional de Áreas Naturales Protegidas (CONANP)
+        </span>
+      </div>
+
+      <!-- CVDR IPN Unidad Oaxaca -->
+      <div class="flex items-center gap-3 min-w-[200px]">
+        <img src="logocvdr.jpg"
+             class="h-14 md:h-20 w-auto object-contain bg-white rounded-md border border-emerald-100 px-2 py-1"
+             alt="CVDR Oaxaca · Instituto Politécnico Nacional">
+        <span class="text-[11px] md:text-xs text-gray-800 leading-snug">
+          Centro de Vinculación y Desarrollo Regional, Unidad Oaxaca · IPN
+        </span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HERO -->
+<section class="relative hero-bg grain">
+  <div class="max-w-7xl mx-auto px-4 py-14 md:py-18 grid md:grid-cols-[1.2fr_.8fr] gap-10 items-center">
+    <div>
+      <span class="badge animate-pop"><i class="fa-solid fa-bullhorn"></i> Convocatoria abierta · 2026</span>
+      <h2 class="mt-4 text-4xl md:text-5xl font-black text-[color:var(--guinda)] leading-tight">
+        Captura y comparte tu <span class="text-emerald-700">patrimonio biocultural</span>
+      </h2>
+      <p class="mt-3 text-lg text-gray-700">
+        Mapearás <b>agrobiodiversidad</b>, <b>saberes y oficios</b>, <b>paisajes culturales</b>, <b>festividades</b> y <b>gastronomía</b>.
+        Todo se integra al <b>Geoportal Biocultural</b> del Corredor.
+      </p>
+      <div class="mt-5 flex flex-wrap gap-2">
+        <span class="token"><i class="fa-solid fa-corn text-amber-600"></i> Maíz nativo</span>
+        <span class="token"><i class="fa-solid fa-jar-wheat text-rose-600"></i> Tejate</span>
+        <span class="token"><i class="fa-solid fa-om text-indigo-600"></i> Rituales</span>
+        <span class="token"><i class="fa-solid fa-shirt text-pink-600"></i> Textiles</span>
+        <span class="token"><i class="fa-solid fa-leaf text-emerald-600"></i> Plantas medicinales</span>
+      </div>
+      <div class="mt-6 flex items-center gap-3">
+        <a href="#mapa" class="px-5 py-3 rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-deep animate-glow">
+          Sube tus aportes
+        </a>
+        <a href="#como" class="px-5 py-3 rounded-xl border border-emerald-200/70 bg-white hover:bg-emerald-50">
+          Ver pasos
+        </a>
+      </div>
+    </div>
+
+    <!-- Orbe Biocultural -->
+    <section class="relative grid place-items-center">
+      <div id="biocircle" class="relative orb">
+        <div class="absolute inset-4 rounded-full bg-gradient-to-br from-emerald-100 to-amber-100 shadow-2xl"></div>
+        <div class="absolute inset-0 grid place-items-center">
+          <div class="relative size-80 md:size-96">
+            <div class="absolute inset-0 rounded-full border-2 border-dashed border-emerald-300 animate-spinSlow"></div>
+            <div class="absolute inset-0 rounded-full border-2 border-dashed border-amber-300 animate-spinSlower"></div>
+          </div>
+        </div>
+        <img src="sello.png" alt="Sello Biocultural"
+             class="absolute inset-0 m-auto w-[60%] h-[60%] object-contain drop-shadow-lg rounded-full ring-2 ring-emerald-200/70 bg-white/70 backdrop-blur-sm z-10">
+        <div id="textOrbitLayer" class="absolute inset-0 z-30 pointer-events-none"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="ribbon bg-emerald-700/95 text-emerald-50">
+    <div class="track animate-ticker text-sm py-2">
+      <span class="mx-6"><i class="fa-solid fa-location-dot"></i> Captura coordenadas (precisión en metros)</span>
+      <span class="mx-6"><i class="fa-solid fa-camera"></i> Sube 1–5 fotos con buena luz</span>
+      <span class="mx-6"><i class="fa-solid fa-microphone-lines"></i> Comparte audios con testimonios</span>
+      <span class="mx-6"><i class="fa-solid fa-video"></i> Videos cortos (≤60s) bien encuadrados</span>
+      <span class="mx-6"><i class="fa-solid fa-shield-heart"></i> Respeta protocolos y consentimiento</span>
+    </div>
+  </div>
+</section>
+
+<!-- PASOS -->
+<section id="como" class="max-w-7xl mx-auto px-4 pt-16">
+  <h3 class="text-2xl md:text-3xl font-extrabold text-gray-900">¿Cómo participar?</h3>
+  <div class="mt-6 grid md:grid-cols-3 gap-5">
+    <div class="card p-5 animate-pop">
+      <div class="size-10 grid place-items-center rounded-xl bg-emerald-50 text-emerald-700"><i class="fa-solid fa-search-location"></i></div>
+      <h4 class="mt-3 font-bold">1) Identifica</h4>
+      <p class="text-gray-600">Un elemento biocultural de tu comunidad (ver categorías).</p>
+    </div>
+    <div class="card p-5 animate-pop [animation-delay:.04s]">
+      <div class="size-10 grid place-items-center rounded-xl bg-emerald-50 text-emerald-700"><i class="fa-solid fa-satellite-dish"></i></div>
+      <h4 class="mt-3 font-bold">2) Geolocaliza</h4>
+      <p class="text-gray-600">Activa tu GPS o marca el punto en el mapa. Se registra precisión.</p>
+    </div>
+    <div class="card p-5 animate-pop [animation-delay:.08s]">
+      <div class="size-10 grid place-items-center rounded-xl bg-emerald-50 text-emerald-700"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+      <h4 class="mt-3 font-bold">3) Sube tus aportes</h4>
+      <p class="text-gray-600">Fotos, audios, videos y testimonios escritos.</p>
+    </div>
+  </div>
+</section>
+
+<!-- MAPA + FORM + REPOSITORIO (JUNTOS) -->
+<section id="mapa" class="max-w-7xl mx-auto px-4 pt-14 pb-20">
+  <h3 class="sr-only">Mapa, formulario y repositorio</h3>
+  <div class="grid xl:grid-cols-[1.2fr_.8fr_.9fr] lg:grid-cols-[1.2fr_.8fr] gap-6 items-start">
+    <!-- Mapa -->
+    <div class="card p-4">
+      <div class="flex items-center justify-between px-2">
+        <h3 class="text-lg md:text-xl font-extrabold text-gray-900"><i class="fa-solid fa-location-crosshairs text-emerald-700"></i> Mapa de registros (demo)</h3>
+        <div class="flex items-center gap-2">
+          <button id="btnGps" class="px-3 py-1.5 rounded-lg border bg-white hover:bg-emerald-50"><i class="fa-solid fa-location-arrow"></i> GPS</button>
+          <button id="btnLimpiar" class="px-3 py-1.5 rounded-lg border bg-white hover:bg-rose-50"><i class="fa-solid fa-eraser"></i> Limpiar</button>
+        </div>
+      </div>
+      <div id="map" class="mt-3"></div>
+      <p class="text-sm text-gray-600 mt-2">Clic para agregar un punto o usa el GPS. Se guardan <b>Lat/Lng</b> y <b>Precisión (m)</b>.</p>
+    </div>
+
+    <!-- Formulario -->
+    <div class="card p-5">
+      <h4 class="font-bold text-gray-900 text-lg">Datos del registro</h4>
+      <form class="mt-3 space-y-3" id="form">
+        <div>
+          <label class="text-sm font-semibold">Categoría</label>
+          <select id="cat" class="mt-1 w-full border rounded-lg p-2.5">
+            <option>Agrobiodiversidad</option><option>Saberes y oficios</option><option>Paisajes culturales</option>
+            <option>Festividades y rituales</option><option>Gastronomía</option><option>Textiles</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm font-semibold">Descripción breve</label>
+          <textarea id="desc" rows="3" class="mt-1 w-full border rounded-lg p-2.5" placeholder="¿Qué estamos documentando?"></textarea>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div><label class="text-sm font-semibold">Lat</label><input id="lat" class="mt-1 w-full border rounded-lg p-2.5" readonly></div>
+          <div><label class="text-sm font-semibold">Lng</label><input id="lng" class="mt-1 w-full border rounded-lg p-2.5" readonly></div>
+          <div><label class="text-sm font-semibold">Precisión (m)</label><input id="acc" class="mt-1 w-full border rounded-lg p-2.5" readonly></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="text-sm font-semibold">Fecha</label><input id="fec" class="mt-1 w-full border rounded-lg p-2.5" type="date"></div>
+          <div><label class="text-sm font-semibold">Autoría / Comunidad</label><input id="aut" class="mt-1 w-full border rounded-lg p-2.5" placeholder="Ej. Agencia X, colectivo Y"></div>
+        </div>
+
+        <button type="button" id="btnGuardar" class="w-full py-2.5 rounded-xl text-white bg-[color:var(--guinda)] hover:brightness-110 shadow-md">
+          Guardar (demo)
+        </button>
+        <p id="out" class="text-xs text-gray-600"></p>
+
+        <!-- WhatsApp -->
+        <div class="grid grid-cols-[1fr_auto] gap-2 items-end mt-4">
+          <div>
+            <label class="text-sm font-semibold"><i class="fa-brands fa-whatsapp text-emerald-600"></i> WhatsApp (10 dígitos o +52...)</label>
+            <input id="wa" class="mt-1 w-full border rounded-lg p-2.5" placeholder="+52 1 951 000 0000">
+          </div>
+          <button type="button" id="btnWhats" class="px-4 py-2.5 rounded-xl font-semibold text-white bg-emerald-600 hover:bg-emerald-700">
+            Enviar por WhatsApp
+          </button>
+        </div>
+        <p class="text-[12px] text-gray-500">Nota: los archivos no se adjuntan automáticamente; se abrirá WhatsApp con un mensaje prellenado para que adjuntes fotos/audios desde tu galería.</p>
+      </form>
+      <div class="mt-4 border-t pt-4 text-sm text-gray-600">
+        <b>Nota SIG:</b> captura preferente en sitio (EPSG:4326). Precisión &lt;10&nbsp;m excelente, 10–30&nbsp;m útil, &gt;30&nbsp;m repetir.
+      </div>
+    </div>
+
+    <!-- Repositorio (junto al mapa y formulario) -->
+    <div id="repositorio" class="card p-6 md:p-8">
+      <h4 class="text-xl font-extrabold text-gray-900"><i class="fa-solid fa-cloud-arrow-up text-emerald-700"></i> Repositorio comunitario</h4>
+      <p class="text-gray-700 mt-1">Sube fotos, audios con testimonios, videos cortos y textos.</p>
+
+      <div id="drop" class="drop mt-5 p-6 text-center">
+        <i class="fa-solid fa-upload text-emerald-700 text-2xl"></i>
+        <p class="mt-1 font-semibold">Arrastra y suelta archivos aquí</p>
+        <p class="text-sm text-gray-600">o</p>
+        <label class="inline-block mt-2 px-4 py-2 rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 cursor-pointer">
+          Seleccionar archivos
+          <input id="fileInput" type="file" class="hidden" multiple
+                 accept="image/*,audio/*,video/*,.mp3,.wav,.m4a,.mp4,.mov,.webm,.ogg,.jpg,.jpeg,.png,.heic" />
+        </label>
+        <p class="text-xs text-gray-500 mt-2">Máx. recomendado por archivo: 50&nbsp;MB (demo, sin envío real).</p>
+      </div>
+
+      <div class="mt-5 grid md:grid-cols-[1fr] gap-6">
+        <div>
+          <label class="text-sm font-semibold"><i class="fa-solid fa-feather-pointed"></i> Testimonio escrito</label>
+          <textarea id="testi" rows="5" class="mt-1 w-full border rounded-lg p-3" placeholder="Comparte una historia, receta, técnica, anécdota o explicación del elemento biocultural."></textarea>
+        </div>
+        <div>
+          <label class="text-sm font-semibold"><i class="fa-solid fa-image"></i> Portada (opcional)</label>
+          <input id="cover" type="file" accept="image/*" class="mt-1 w-full border rounded-lg p-2.5" />
+          <div id="coverPrev" class="mt-2"></div>
+        </div>
+      </div>
+
+      <div id="previews" class="mt-6 grid sm:grid-cols-2 lg:grid-cols-2 gap-4"></div>
+
+      <div class="mt-6 flex flex-wrap items-center gap-3">
+        <button id="btnEnviarRepo" class="px-5 py-3 rounded-xl text-white bg-[color:var(--guinda)] hover:brightness-110 shadow-md">
+          Registrar aportes (demo)
+        </button>
+        <button id="btnWhatsRepo" class="px-5 py-3 rounded-xl text-white bg-emerald-600 hover:bg-emerald-700">
+          Compartir por WhatsApp
+        </button>
+        <span id="repoMsg" class="text-sm text-emerald-700"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BASES -->
+<section id="bases" class="max-w-7xl mx-auto px-4 pb-20">
+  <div class="card p-6 md:p-8">
+    <h3 class="text-2xl md:text-3xl font-extrabold text-gray-900">Bases de la convocatoria</h3>
+    <ul class="mt-4 grid md:grid-cols-2 gap-3 text-gray-700">
+      <li class="p-3 rounded-lg border bg-white"><i class="fa-solid fa-user-shield text-emerald-600 mr-2"></i>Respeta protocolos comunitarios y consentimiento informado.</li>
+      <li class="p-3 rounded-lg border bg-white"><i class="fa-solid fa-image text-emerald-600 mr-2"></i>Material propio; evita datos personales visibles.</li>
+      <li class="p-3 rounded-lg border bg-white"><i class="fa-solid fa-database text-emerald-600 mr-2"></i>Datos abiertos para fines educativos y de conservación.</li>
+      <li class="p-3 rounded-lg border bg-white"><i class="fa-solid fa-envelope-open-text text-emerald-600 mr-2"></i>Contacto: contacto@ejemplo.gob.mx</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="border-t">
+  <div class="max-w-7xl mx-auto px-4 py-8 text-sm text-gray-600">
+    © 2026 · Corredor Biocultural — Valles Centrales · Hecho con comunidad.
+  </div>
+</footer>
+
+<!-- JS: Orbe + Mapa + Form + Repositorio + WhatsApp (DEMO) -->
+<script>
+  /* ===== ORBE ===== */
+  const WORDS1 = [
+    'Milpas','Mercados','Rituales','Barro negro','Plantas medicinales','Tejate',
+    'Agrobiodiversidad','Textiles','Gastronomía','Festividades','Saberes','Oficios',
+    'Ceremonias','Bordado','Alfarería','Maíces nativos','Cocinas tradicionales','Identidad'
+  ];
+  const WORDS2 = ['Mezcal','Territorios','Patrimonio vivo','Memoria','Comunalidad','Lengua','Danza','Bosques'];
+
+  (function initOrb(){
+    const circle = document.getElementById('biocircle');
+    const textLayer = document.getElementById('textOrbitLayer');
+    function createWords(){
+      if(!circle || !textLayer) return;
+      textLayer.innerHTML = '';
+      const size = Math.min(circle.clientWidth,circle.clientHeight) * 0.5;
+      function addTrack(words, radiusFactor, seconds, reverse=false){
+        const track = document.createElement('div');
+        track.style.position='absolute';
+        track.style.inset='0';
+        track.style.animation = `spin ${seconds}s linear infinite`;
+        if(reverse) track.style.animationDirection='reverse';
+        textLayer.appendChild(track);
+        const r = size*radiusFactor;
+        const N = words.length;
+        words.forEach((w,i)=>{
+          const chip = document.createElement('span');
+          chip.className='word-chip';
+          const ang=(i/N)*Math.PI*2;
+          const deg=(ang*180/Math.PI);
+          chip.style.transform=`translate(-50%,-50%) rotate(${deg}deg) translate(${r}px,0) rotate(${-deg}deg)`;
+          chip.textContent=w;
+          chip.style.animation='float 6s ease-in-out infinite';
+          chip.style.animationDelay=(Math.random()*-6)+'s';
+          track.appendChild(chip);
+        });
+      }
+      addTrack(WORDS1,0.78,80);
+      addTrack(WORDS2,0.63,100,true);
+    }
+    createWords();
+    addEventListener('resize',createWords);
+  })();
+
+  /* ===== MAPA ===== */
+  const map = L.map('map',{zoomControl:true}).setView([17.06,-96.72], 9);
+  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+  const sat = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{maxZoom:20, subdomains:['mt0','mt1','mt2','mt3'], attribution:'© Google'});
+  L.control.layers({"OSM":osm,"Satélite (demo)":sat}, null, {collapsed:true}).addTo(map);
+
+  const puntos = L.featureGroup().addTo(map);
+
+  const latEl = document.getElementById('lat');
+  const lngEl = document.getElementById('lng');
+  const accEl = document.getElementById('acc');
+  const btnGps = document.getElementById('btnGps');
+  const btnLimpiar = document.getElementById('btnLimpiar');
+  const btnGuardar = document.getElementById('btnGuardar');
+  const out = document.getElementById('out');
+  const cat = document.getElementById('cat');
+  const desc = document.getElementById('desc');
+  const fec = document.getElementById('fec');
+  const aut = document.getElementById('aut');
+
+  function setForm(latlng, accVal){
+    latEl.value = latlng.lat.toFixed(6);
+    lngEl.value = latlng.lng.toFixed(6);
+    accEl.value = (typeof accVal === 'number') ? Math.round(accVal) : "";
+  }
+
+  map.on('click', e=>{
+    const m = L.marker(e.latlng,{draggable:true}).addTo(puntos);
+    setForm(e.latlng);
+    m.on('dragend', ev=> setForm(ev.target.getLatLng()));
+  });
+
+  btnGps.onclick = ()=>{
+    if(!navigator.geolocation){ alert('Geolocalización no soportada'); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos=>{
+        const {latitude, longitude, accuracy} = pos.coords;
+        const ll = [latitude, longitude];
+        map.setView(ll, 16);
+        const mk = L.marker(ll,{draggable:true}).addTo(puntos);
+        setForm({lat:latitude,lng:longitude}, accuracy);
+        mk.on('dragend', ev=> setForm(ev.target.getLatLng(), accuracy));
+      },
+      err=> alert('No se pudo obtener GPS: ' + err.message),
+      {enableHighAccuracy:true, timeout:12000, maximumAge:0}
+    );
+  };
+
+  btnLimpiar.onclick = ()=>{ puntos.clearLayers(); latEl.value=lngEl.value=accEl.value=""; };
+
+  /* ===== FORM (DEMO) ===== */
+  fec.value = new Date().toISOString().slice(0,10);
+  btnGuardar.onclick = ()=>{
+    if(!latEl.value || !lngEl.value){
+      out.textContent = 'Agrega un punto en el mapa o usa GPS.'; 
+      out.className = "text-xs mt-1 text-rose-700";
+      return;
+    }
+    const doc = currentDoc();
+    out.textContent = 'Registro preparado (demo): ' + JSON.stringify(doc);
+    out.className = "text-xs mt-1 text-emerald-700";
+    confetti();
+  };
+
+  function currentDoc(){
+    return {
+      categoria: cat.value,
+      descripcion: (desc.value||'').trim(),
+      lat: latEl.value ? Number(latEl.value) : null,
+      lng: lngEl.value ? Number(lngEl.value) : null,
+      precision_m: accEl.value? Number(accEl.value): null,
+      fecha: fec.value || new Date().toISOString().slice(0,10),
+      autor: (aut.value||'').trim()
+    };
+  }
+
+  /* ===== REPOSITORIO (DEMO) ===== */
+  const drop = document.getElementById('drop');
+  const input = document.getElementById('fileInput');
+  const previews = document.getElementById('previews');
+  const cover = document.getElementById('cover');
+  const coverPrev = document.getElementById('coverPrev');
+  const testi = document.getElementById('testi');
+  const btnEnviarRepo = document.getElementById('btnEnviarRepo');
+  const repoMsg = document.getElementById('repoMsg');
+
+  const filesState = [];
+  function renderPreview(file){
+    const card = document.createElement('div');
+    card.className = 'p-3 border rounded-xl bg-white';
+    const title = document.createElement('div');
+    title.className = 'text-sm font-semibold mb-2';
+    title.textContent = file.name + ' · ' + Math.ceil(file.size/1024) + ' KB';
+    card.appendChild(title);
+
+    if(file.type.startsWith('image/')){
+      const img = document.createElement('img');
+      img.className = 'w-full rounded-lg';
+      img.src = URL.createObjectURL(file);
+      card.appendChild(img);
+    }else if(file.type.startsWith('audio/')){
+      const au = document.createElement('audio');
+      au.controls = true; au.src = URL.createObjectURL(file); au.className = 'w-full';
+      card.appendChild(au);
+    }else if(file.type.startsWith('video/')){
+      const vd = document.createElement('video');
+      vd.controls = true; vd.src = URL.createObjectURL(file); vd.className = 'w-full rounded-lg';
+      card.appendChild(vd);
+    }else{
+      const p = document.createElement('p');
+      p.className = 'text-xs text-gray-600'; p.textContent = 'Archivo agregado.';
+      card.appendChild(p);
+    }
+    previews.appendChild(card);
+  }
+
+  function handleFiles(list){
+    [...list].forEach(f=>{ filesState.push(f); renderPreview(f); });
+  }
+
+  input.addEventListener('change', e=> handleFiles(e.target.files));
+  drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('bg-emerald-50'); });
+  drop.addEventListener('dragleave', ()=> drop.classList.remove('bg-emerald-50'));
+  drop.addEventListener('drop', e=>{
+    e.preventDefault(); drop.classList.remove('bg-emerald-50');
+    handleFiles(e.dataTransfer.files);
+  });
+
+  cover.addEventListener('change', e=>{
+    coverPrev.innerHTML = '';
+    const f = e.target.files[0]; if(!f) return;
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(f); img.className = 'h-32 rounded-lg border';
+    coverPrev.appendChild(img);
+  });
+
+  btnEnviarRepo.onclick = ()=>{
+    const payload = repoPayload();
+    repoMsg.textContent = 'Aportes preparados (demo): ' + payload.archivos.length + ' archivo(s) + testimonio.';
+    repoMsg.className = 'text-sm text-emerald-700';
+    confetti();
+  };
+
+  function repoPayload(){
+    return {
+      testimonios_texto: (testi.value||'').trim(),
+      portada: cover.files[0]?.name || null,
+      archivos: filesState.map(f=>({name:f.name,type:f.type,size:f.size}))
+    };
+  }
+
+  /* ===== WhatsApp (form + repo) ===== */
+  const wa = document.getElementById('wa');
+  const btnWhats = document.getElementById('btnWhats');
+  const btnWhatsRepo = document.getElementById('btnWhatsRepo');
+
+  function formatPhone(raw){
+    if(!raw) return "";
+    let p = raw.replace(/[^\d+]/g,'');
+    if(p.startsWith('52') && p.length===12) p = '+' + p;
+    if(!p.startsWith('+') && p.length===10) p = '+52' + p;
+    return p;
+  }
+
+  function buildWhatsText(){
+    const d = currentDoc();
+    const r = repoPayload();
+    const lines = [
+      'MAPATÓN BIOCULTURAL — Envío de registro',
+      `Categoría: ${d.categoria||'-'}`,
+      `Descripción: ${d.descripcion||'-'}`,
+      `Coordenadas: ${d.lat??'-'}, ${d.lng??'-'} (±${d.precision_m??'-'} m)`,
+      `Fecha: ${d.fecha||'-'}`,
+      `Autoría/Comunidad: ${d.autor||'-'}`,
+      `#Archivos: ${r.archivos.length}  | Portada: ${r.portada||'—'}`,
+      `Testimonio: ${r.testimonios_texto ? (r.testimonios_texto.slice(0,220)+'…') : '—'}`,
+      '',
+      'Adjunto fotos/audios/videos en este chat.'
+    ];
+    return lines.join('\n');
+  }
+
+  function openWhatsApp(withNumber){
+    const phone = formatPhone(withNumber || wa.value || '');
+    const text = buildWhatsText();
+    const url = `https://wa.me/${phone.replace('+','') || ''}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  }
+
+  btnWhats.onclick = ()=> openWhatsApp();
+  btnWhatsRepo.onclick = ()=> openWhatsApp();
+
+  /* ===== Mini confetti (emoji) ===== */
+  function confetti(){
+    const emojis = ['🌽','🫓','🧵','🫙','🌿','🎉'];
+    for(let i=0;i<14;i++){
+      const s = document.createElement('div');
+      s.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+      s.style.position='fixed';
+      s.style.left = (Math.random()*100)+'%';
+      s.style.top = '-10px';
+      s.style.fontSize = (18+Math.random()*16)+'px';
+      s.style.transition = 'transform 2.2s ease-out, opacity 2.2s ease-out';
+      document.body.appendChild(s);
+      setTimeout(()=>{ s.style.transform = `translateY(${100+Math.random()*100}vh) rotate(${Math.random()*360}deg)`; s.style.opacity=.0; }, 10);
+      setTimeout(()=> s.remove(), 2300);
+    }
+  }
+</script>
+  <footer>
+    <div class="foot-main">
+      <img src="logocvdr.jpg" alt="CVDR Oaxaca" />
+      <span>Centro de Vinculación y Desarrollo Regional Oaxaca · Instituto Politécnico Nacional</span>
+    </div>
+    <div class="foot-partners">
+      <span class="foot-pill">
+        <i class="fa-solid fa-hand-holding-droplet"></i>
+        Unión de Comunidades y Ejidos de los Valles Centrales de Oaxaca por la Conservación de Bosques y Agua A.C.
+      </span>
+      <span class="foot-pill">
+        <i class="fa-solid fa-mountain-sun"></i>
+        Comisión Nacional de Áreas Naturales Protegidas
+      </span>
+      <a href="#" class="privacy">Aviso de privacidad</a>
+    </div>
+  </footer>
+</div>
+</body>
+</html>
